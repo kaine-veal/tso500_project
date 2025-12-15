@@ -171,19 +171,22 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 3.  **Transcript Selection (The Core Logic)**
     For each variant, the script evaluates all available transcript annotations using the following priority:
     * **Tier 1 (Preferred):** Does the annotation contain an NM ID (in `MANE_SELECT`, `MANE_PLUS_CLINICAL`, or `HGVSc`) that matches your `TSO500` list?
-    * **Tier 2 (MANE Select):** If not, is it tagged as the *MANE Select* transcript?
-    * **Tier 3 (MANE Plus Clinical):** If not, is it tagged as *MANE Plus Clinical*?
+    * **Tier 2 (MANE Select):** If not, is it tagged as the *MANE Plus Clinical* transcript?
+    * **Tier 3 (MANE Plus Clinical):** If not, is it tagged as *MANE Select*?
     * **Tier 4 (Fallback):** If none of the above, use the first annotation provided by VEP (default behavior).
 
 4.  **Output Generation**
     * Combines the standard VCF columns (`CHROM`, `POS`, `REF`, `ALT`), the selected transcript ID (`NM_Transcript`), the selection method used (for QC), the specific VEP annotation fields for that transcript, and the OncoKB data.
     * Writes this combined record to the CSV file.
 
+❌ ***I have left an example of one table in the the folder Output_Results***
+
 ## 📝 TODO List
-- [] End to end analysis over the 420 samples again and check we dont miss variants. 
-- [] Check what variants are rejected by liftover. We shouldn't reject many as all our variants in this step are PASS only.
+- [ ] End to end analysis over the 420 samples again and check we dont miss variants. 
+- [ ] Check what variants are rejected by liftover. We shouldn't reject many as all our variants in this step are PASS only.
 - [ ] Repeat the analysis twice (generic vs. tumour type) anc check what shows better annotation
-- [ ] Validation/test. I need to create a very small VCF with variants that shows all annotation in OncoKB. In a preliminar view, all variants are unkonwn. I need the final table to see is there is non-unknown variants or test with kown variants in a sitetic VCF and see what is going on.
+- [ ] Validation/test. I need to create a very small VCF with variants that shows all annotation in OncoKB. In a preliminar view, all variants are unkonwn. I need the final table to see is there is non-unknown variants or test with kown variants in a sitetic VCF and see what is going on. For instance I dont know the decistion taken to Handling Structural Insertions is correct. 
+
 
 
 
