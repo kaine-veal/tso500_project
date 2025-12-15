@@ -77,7 +77,7 @@ The script is configured to use the following structure. It will automatically c
 * **Running in Background:** To ensure the pipeline runs uninterruptedly until completion, it is recommended to execute it in the background using the `nohup` command, which directs output to a log file (`DoIt.log`):
 
 ```bash
-nohup ./your_pipeline_script_name.sh > DoIt.log 2>&1 &
+nohup ./DoIt.sh > DoIt.log 2>&1 &
 ```
 
 ## 📝 Step-by-Step Details
