@@ -186,6 +186,7 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 - [ ] Check what variants are rejected by liftover. We shouldn't reject many as all our variants in this step are PASS only.
 - [ ] Repeat the analysis twice (generic vs. tumour type) anc check what shows better annotation
 - [ ] Validation/test. I need to create a very small VCF with variants that shows all annotation in OncoKB. In a preliminar view, all variants are unkonwn. I need the final table to see is there is non-unknown variants or test with kown variants in a sitetic VCF and see what is going on. For instance I dont know the decistion taken to Handling Structural Insertions is correct. 
+- [ ] Discussion needed about the final output table.
 
 ## Where the data in the ArchiveData server is
 ```bash
@@ -198,5 +199,5 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 └── VCFs                             # Variant Call Format (VCF) files
     └── files                        # All TSO500 VCF files
         └── AnnotatedVEP             # 418 PASS, liftover-processed, and VEP-annotated TSO500 VCFs file + DoIt.log (log file showing liftover and VEP analysis records )
-```bash
+```
 
