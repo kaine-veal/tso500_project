@@ -193,7 +193,6 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 
 
 ### FORMAT values
-
 | Name | Description |
 |------|-------------|
 | AD | Allelic depths (counting only informative reads out of the total reads) for the ref and alt alleles in the order listed |
@@ -223,45 +222,46 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 | Consequence | Sequence Ontology consequence term(s) | Ensembl VEP |
 | IMPACT | Impact category (HIGH, MODERATE, LOW, MODIFIER) | Ensembl VEP |
 | SYMBOL | Gene symbol | Ensembl VEP |
-| Gene | Ensembl gene ID | Ensembl VEP |
-| Feature_type | Type of annotated feature (Transcript, RegulatoryFeature, etc.) | Ensembl VEP |
-| Feature | Feature ID (e.g. ENST transcript ID) | Ensembl VEP |
+| Gene | Ensembl gene identifier | Ensembl VEP |
+| Feature_type | Type of annotated feature (e.g. Transcript, RegulatoryFeature) | Ensembl VEP |
+| Feature | Feature identifier (e.g. ENST transcript ID) | Ensembl VEP |
 | BIOTYPE | Transcript biotype (e.g. protein_coding) | Ensembl VEP |
-| EXON | Exon number / total exons | Ensembl VEP |
-| INTRON | Intron number / total introns | Ensembl VEP |
-| HGVSc | HGVS coding DNA notation | Ensembl VEP |
-| HGVSp | HGVS protein notation | Ensembl VEP |
-| cDNA_position | Position within transcript cDNA | Ensembl VEP |
-| CDS_position | Position within coding sequence | Ensembl VEP |
-| Protein_position | Amino acid position | Ensembl VEP |
-| Amino_acids | Reference/alternate amino acids | Ensembl VEP |
-| Codons | Reference/alternate codons | Ensembl VEP |
-| Existing_variation | Known variant IDs (e.g. rsID) | Ensembl VEP |
-| DISTANCE | Distance to feature for non-overlapping variants | Ensembl VEP |
-| STRAND | Strand of the feature | Ensembl VEP |
-| FLAGS | Internal VEP flags | Ensembl VEP |
-| VARIANT_CLASS | High-level variant type (SNV, insertion, deletion) | Ensembl VEP |
-| SYMBOL_SOURCE | Source of gene symbol (e.g. HGNC) | Ensembl VEP |
+| EXON | Exon number and total exons | Ensembl VEP |
+| INTRON | Intron number and total introns | Ensembl VEP |
+| HGVSc | HGVS coding DNA sequence notation | Ensembl VEP |
+| HGVSp | HGVS protein sequence notation | Ensembl VEP |
+| cDNA_position | Position within the transcript cDNA | Ensembl VEP |
+| CDS_position | Position within the coding sequence | Ensembl VEP |
+| Protein_position | Amino acid position within the protein | Ensembl VEP |
+| Amino_acids | Reference and alternate amino acids | Ensembl VEP |
+| Codons | Reference and alternate codons | Ensembl VEP |
+| Existing_variation | Known variant identifiers (e.g. rsID) | Ensembl VEP |
+| DISTANCE | Distance to the nearest feature for non-overlapping variants | Ensembl VEP |
+| STRAND | Strand of the annotated feature | Ensembl VEP |
+| FLAGS | Internal VEP annotation flags | Ensembl VEP |
+| VARIANT_CLASS | High-level variant class (e.g. SNV, insertion, deletion) | Ensembl VEP |
+| SYMBOL_SOURCE | Source of the gene symbol (e.g. HGNC) | Ensembl VEP |
 | HGNC_ID | HGNC gene identifier | Ensembl VEP |
-| CANONICAL | Indicates Ensembl canonical transcript | Ensembl VEP |
+| CANONICAL | Indicates whether the transcript is Ensembl canonical | Ensembl VEP |
 | MANE | MANE annotation label | Ensembl / MANE |
-| MANE_SELECT | MANE Select RefSeq transcript ID | Ensembl / MANE |
-| MANE_PLUS_CLINICAL | MANE Plus Clinical RefSeq transcript ID | Ensembl / MANE |
+| MANE_SELECT | MANE Select RefSeq transcript identifier | Ensembl / MANE |
+| MANE_PLUS_CLINICAL | MANE Plus Clinical RefSeq transcript identifier | Ensembl / MANE |
 | TSL | Transcript Support Level | Ensembl |
 | APPRIS | APPRIS principal isoform annotation | Ensembl |
-| CCDS | CCDS identifier | CCDS |
-| ENSP | Ensembl protein ID | Ensembl |
+| CCDS | Consensus CDS (CCDS) identifier | CCDS |
+| ENSP | Ensembl protein identifier | Ensembl |
 | SWISSPROT | UniProt Swiss-Prot accession | UniProt |
 | TREMBL | UniProt TrEMBL accession | UniProt |
 | UNIPARC | UniParc identifier | UniProt |
-| UNIPROT_ISOFORM | UniProt isoform ID | UniProt |
-| SOURCE | Transcript source (Ensembl/RefSeq) | Ensembl VEP |
-| GENE_PHENO | Gene associated with phenotype | Ensembl VEP |
-| SIFT | SIFT deleteriousness prediction | Ensembl VEP |
+| UNIPROT_ISOFORM | UniProt isoform identifier | UniProt |
+| SOURCE | Transcript source (Ensembl or RefSeq) | Ensembl VEP |
+| GENE_PHENO | Indicates gene–phenotype association | Ensembl VEP |
+| SIFT | SIFT protein impact prediction | Ensembl VEP |
 | PolyPhen | PolyPhen protein impact prediction | Ensembl VEP |
-| DOMAINS | Overlapping protein domains | Ensembl VEP |
+| DOMAINS | Overlapping protein domain annotations | Ensembl VEP |
 | miRNA | miRNA-related annotation | Ensembl VEP |
 | HGVS_OFFSET | HGVS offset for complex variants | Ensembl VEP |
+
 
 ### Population Frecuency
 
@@ -332,48 +332,56 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 
 
 ### ClinVar annotations
-| ClinVar | ClinVar annotation source VCF |
-| ClinVar_AF_ESP | ESP allele frequency from ClinVar |
-| ClinVar_AF_EXAC | ExAC allele frequency from ClinVar |
-| ClinVar_AF_TGP | 1000 Genomes allele frequency from ClinVar |
-| ClinVar_ALLELEID | ClinVar allele identifier |
-| ClinVar_CLNDN | ClinVar disease name |
-| ClinVar_CLNDNINCL | Included disease names from ClinVar |
-| ClinVar_CLNDISDB | ClinVar disease database |
-| ClinVar_CLNDISDBINCL | Included disease databases from ClinVar |
-| ClinVar_CLNHGVS | ClinVar HGVS notation |
-| ClinVar_CLNREVSTAT | ClinVar review status |
-| ClinVar_CLNSIG | ClinVar clinical significance |
-| ClinVar_CLNSIGCONF | ClinVar clinical significance confidence |
-| ClinVar_CLNSIGINCL | Included clinical significance terms |
-| ClinVar_CLNSIGSCV | ClinVar SCV identifiers |
-| ClinVar_CLNVC | ClinVar variant classification |
-| ClinVar_CLNVCSO | Sequence ontology term for variant class |
-| ClinVar_CLNVI | ClinVar variation identifier |
-| ClinVar_DBVARID | dbVar identifier |
-| ClinVar_GENEINFO | Gene information from ClinVar |
-| ClinVar_MC | Molecular consequence from ClinVar |
-| ClinVar_ONCDN | Oncology disease name |
-| ClinVar_ONCDNINCL | Included oncology disease names |
-| ClinVar_ONCDISDB | Oncology disease database |
-| ClinVar_ONCDISDBINCL | Included oncology disease databases |
-| ClinVar_ONC | Oncology clinical significance |
-| ClinVar_ONCINCL | Included oncology significance terms |
-| ClinVar_ONCREVSTAT | Oncology review status |
-| ClinVar_ONCSCV | Oncology SCV identifiers |
-| ClinVar_ONCCONF | Oncology confidence |
-| ClinVar_ORIGIN | Origin of the variant |
-| ClinVar_RS | dbSNP rsID |
-| ClinVar_SCIDN | Secondary condition disease name |
-| ClinVar_SCIDNINCL | Included secondary condition disease names |
-| ClinVar_SCIDISDB | Secondary condition disease database |
-| ClinVar_SCIDISDBINCL | Included secondary condition disease databases |
-| ClinVar_SCIREVSTAT | Secondary condition review status |
-| ClinVar_SCI | Secondary condition clinical significance |
-| ClinVar_SCIINCL | Included secondary condition significance |
-| ClinVar_SCISCV | Secondary condition SCV identifiers |
+| Field | Description | Source |
+|------|-------------|--------|
+| Allele | ALT allele associated with this consequence | Ensembl VEP |
+| Consequence | Sequence Ontology consequence term(s) | Ensembl VEP |
+| IMPACT | Impact category (HIGH, MODERATE, LOW, MODIFIER) | Ensembl VEP |
+| SYMBOL | Gene symbol | Ensembl VEP |
+| Gene | Ensembl gene identifier | Ensembl VEP |
+| Feature_type | Type of annotated feature (e.g. Transcript, RegulatoryFeature) | Ensembl VEP |
+| Feature | Feature identifier (e.g. ENST transcript ID) | Ensembl VEP |
+| BIOTYPE | Transcript biotype (e.g. protein_coding) | Ensembl VEP |
+| EXON | Exon number and total exons | Ensembl VEP |
+| INTRON | Intron number and total introns | Ensembl VEP |
+| HGVSc | HGVS coding DNA sequence notation | Ensembl VEP |
+| HGVSp | HGVS protein sequence notation | Ensembl VEP |
+| cDNA_position | Position within the transcript cDNA | Ensembl VEP |
+| CDS_position | Position within the coding sequence | Ensembl VEP |
+| Protein_position | Amino acid position within the protein | Ensembl VEP |
+| Amino_acids | Reference and alternate amino acids | Ensembl VEP |
+| Codons | Reference and alternate codons | Ensembl VEP |
+| Existing_variation | Known variant identifiers (e.g. rsID) | Ensembl VEP |
+| DISTANCE | Distance to the nearest feature for non-overlapping variants | Ensembl VEP |
+| STRAND | Strand of the annotated feature | Ensembl VEP |
+| FLAGS | Internal VEP annotation flags | Ensembl VEP |
+| VARIANT_CLASS | High-level variant class (e.g. SNV, insertion, deletion) | Ensembl VEP |
+| SYMBOL_SOURCE | Source of the gene symbol (e.g. HGNC) | Ensembl VEP |
+| HGNC_ID | HGNC gene identifier | Ensembl VEP |
+| CANONICAL | Indicates whether the transcript is Ensembl canonical | Ensembl VEP |
+| MANE | MANE annotation label | Ensembl / MANE |
+| MANE_SELECT | MANE Select RefSeq transcript identifier | Ensembl / MANE |
+| MANE_PLUS_CLINICAL | MANE Plus Clinical RefSeq transcript identifier | Ensembl / MANE |
+| TSL | Transcript Support Level | Ensembl |
+| APPRIS | APPRIS principal isoform annotation | Ensembl |
+| CCDS | Consensus CDS (CCDS) identifier | CCDS |
+| ENSP | Ensembl protein identifier | Ensembl |
+| SWISSPROT | UniProt Swiss-Prot accession | UniProt |
+| TREMBL | UniProt TrEMBL accession | UniProt |
+| UNIPARC | UniParc identifier | UniProt |
+| UNIPROT_ISOFORM | UniProt isoform identifier | UniProt |
+| SOURCE | Transcript source (Ensembl or RefSeq) | Ensembl VEP |
+| GENE_PHENO | Indicates gene–phenotype association | Ensembl VEP |
+| SIFT | SIFT protein impact prediction | Ensembl VEP |
+| PolyPhen | PolyPhen protein impact prediction | Ensembl VEP |
+| DOMAINS | Overlapping protein domain annotations | Ensembl VEP |
+| miRNA | miRNA-related annotation | Ensembl VEP |
+| HGVS_OFFSET | HGVS offset for complex variants | Ensembl VEP |
 
-### ClinVar annotations
+
+### CancerHotspots annotations
+| Field | Description |
+|------|-------------|
 | CancerHotspots | Cancer Hotspots annotation source |
 | CancerHotspots_HOTSPOT | Hotspot flag |
 | CancerHotspots_HOTSPOT_GENE | Gene associated with hotspot |
@@ -386,6 +394,8 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 | CancerHotspots_HOTSPOTNC_HGVSc | Coding HGVS for non-coding hotspot |
 
 ### OncoKB
+| Field | Description |
+|------|-------------|
 | ONCOKB_ONCOGENIC | OncoKB oncogenic classification |
 | ONCOKB_HOTSPOT | OncoKB hotspot flag |
 | ONCOKB_EFFECT | OncoKB known mutation effect |
@@ -442,4 +452,5 @@ The following tool and format versions were used to generate the data:
 - Ensembl VEP: version 114.2
 - OncoKB: version 5.4
 - bcftools: version 1.21
+- SpliceAI: version 1.3
 
