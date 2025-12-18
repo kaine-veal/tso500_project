@@ -159,7 +159,6 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 #### Logic and Workflow
 
 1.  **Configuration Loading**
-    * Reads the list of desired VEP fields from `--vep-fields` (must match the VCF header order).
     * Reads the list of OncoKB tags from `--oncokb-fields`.
     * Loads the preferred transcript list (`--transcripts`), stripping any version numbers to ensure robust matching.
 
@@ -177,7 +176,238 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 
 4.  **Output Generation**
     * Combines the standard VCF columns (`CHROM`, `POS`, `REF`, `ALT`), the selected transcript ID (`NM_Transcript`), the selection method used (for QC), the specific VEP annotation fields for that transcript, and the OncoKB data.
-    * Writes this combined record to the CSV file.
+## Annotation
+
+### Core VCF columns
+
+| Field | Description |
+|------|-------------|
+| CHROM | Chromosome name | 
+| POS | 1-based position of the variant | 
+| ID | Variant identifier (e.g. rsID), if available | 
+| REF | Reference allele | 
+| ALT | Alternate allele(s) |
+| QUAL | Variant quality score | 
+| FILTER | Filter status (all variants are marked as PASS because filtering is applied upstream at the beginning of the pipeline)| 
+| FORMAT | Per-sample data format specification | 
+
+
+### FORMAT values
+
+| Name | Description |
+|------|-------------|
+| AD | Allelic depths (counting only informative reads out of the total reads) for the ref and alt alleles in the order listed |
+| AF | Allele fractions for alt alleles in the order listed |
+| DP | Approximate read depth (reads with MQ=255 or with bad mates are filtered) |
+| F1R2 | Count of reads in F1R2 pair orientation supporting each allele |
+| F2R1 | Count of reads in F2R1 pair orientation supporting each allele |
+| FT | Genotype-level filter |
+| GT | Genotype |
+| MB | Per-sample component statistics to detect mate bias |
+| OBC | Orientation Bias Filter base context |
+| OBPa | Orientation Bias prior for artifact |
+| OBParc | Orientation Bias prior for reverse complement artifact |
+| OBPsnp | Orientation Bias prior for real variant |
+| PR | Spanning paired-read support for the ref and alt alleles in the order listed |
+| PS | Physical phasing ID information, where each unique ID within a given sample (but not across samples) connects records within a phasing group |
+| SB | Per-sample component statistics which comprise Fisher’s Exact Test to detect strand bias |
+| SQ | Somatic quality |
+| SR | Split reads for the ref and alt alleles in the order listed, for reads where P(allele\|read) > 0.999 |
+
+
+### VEP Annotation
+
+| Field | Description | Source |
+|------|-------------|--------|
+| Allele | ALT allele associated with this consequence | Ensembl VEP |
+| Consequence | Sequence Ontology consequence term(s) | Ensembl VEP |
+| IMPACT | Impact category (HIGH, MODERATE, LOW, MODIFIER) | Ensembl VEP |
+| SYMBOL | Gene symbol | Ensembl VEP |
+| Gene | Ensembl gene ID | Ensembl VEP |
+| Feature_type | Type of annotated feature (Transcript, RegulatoryFeature, etc.) | Ensembl VEP |
+| Feature | Feature ID (e.g. ENST transcript ID) | Ensembl VEP |
+| BIOTYPE | Transcript biotype (e.g. protein_coding) | Ensembl VEP |
+| EXON | Exon number / total exons | Ensembl VEP |
+| INTRON | Intron number / total introns | Ensembl VEP |
+| HGVSc | HGVS coding DNA notation | Ensembl VEP |
+| HGVSp | HGVS protein notation | Ensembl VEP |
+| cDNA_position | Position within transcript cDNA | Ensembl VEP |
+| CDS_position | Position within coding sequence | Ensembl VEP |
+| Protein_position | Amino acid position | Ensembl VEP |
+| Amino_acids | Reference/alternate amino acids | Ensembl VEP |
+| Codons | Reference/alternate codons | Ensembl VEP |
+| Existing_variation | Known variant IDs (e.g. rsID) | Ensembl VEP |
+| DISTANCE | Distance to feature for non-overlapping variants | Ensembl VEP |
+| STRAND | Strand of the feature | Ensembl VEP |
+| FLAGS | Internal VEP flags | Ensembl VEP |
+| VARIANT_CLASS | High-level variant type (SNV, insertion, deletion) | Ensembl VEP |
+| SYMBOL_SOURCE | Source of gene symbol (e.g. HGNC) | Ensembl VEP |
+| HGNC_ID | HGNC gene identifier | Ensembl VEP |
+| CANONICAL | Indicates Ensembl canonical transcript | Ensembl VEP |
+| MANE | MANE annotation label | Ensembl / MANE |
+| MANE_SELECT | MANE Select RefSeq transcript ID | Ensembl / MANE |
+| MANE_PLUS_CLINICAL | MANE Plus Clinical RefSeq transcript ID | Ensembl / MANE |
+| TSL | Transcript Support Level | Ensembl |
+| APPRIS | APPRIS principal isoform annotation | Ensembl |
+| CCDS | CCDS identifier | CCDS |
+| ENSP | Ensembl protein ID | Ensembl |
+| SWISSPROT | UniProt Swiss-Prot accession | UniProt |
+| TREMBL | UniProt TrEMBL accession | UniProt |
+| UNIPARC | UniParc identifier | UniProt |
+| UNIPROT_ISOFORM | UniProt isoform ID | UniProt |
+| SOURCE | Transcript source (Ensembl/RefSeq) | Ensembl VEP |
+| GENE_PHENO | Gene associated with phenotype | Ensembl VEP |
+| SIFT | SIFT deleteriousness prediction | Ensembl VEP |
+| PolyPhen | PolyPhen protein impact prediction | Ensembl VEP |
+| DOMAINS | Overlapping protein domains | Ensembl VEP |
+| miRNA | miRNA-related annotation | Ensembl VEP |
+| HGVS_OFFSET | HGVS offset for complex variants | Ensembl VEP |
+
+### Population Frecuency
+
+| Field | Description | Source |
+|------|-------------|--------|
+| AF | Global allele frequency across all populations | Ensembl VEP / gnomAD |
+| AFR_AF | Allele frequency in African/African-American population | gnomAD |
+| AMR_AF | Allele frequency in Admixed American population | gnomAD |
+| EAS_AF | Allele frequency in East Asian population | gnomAD |
+| EUR_AF | Allele frequency in European population | gnomAD |
+| SAS_AF | Allele frequency in South Asian population | gnomAD |
+| gnomADe_AF | Overall allele frequency in gnomAD exomes | gnomAD (exomes) |
+| gnomADe_AFR_AF | Allele frequency in African population (exomes) | gnomAD (exomes) |
+| gnomADe_AMR_AF | Allele frequency in Admixed American population (exomes) | gnomAD (exomes) |
+| gnomADe_ASJ_AF | Allele frequency in Ashkenazi Jewish population (exomes) | gnomAD (exomes) |
+| gnomADe_EAS_AF | Allele frequency in East Asian population (exomes) | gnomAD (exomes) |
+| gnomADe_FIN_AF | Allele frequency in Finnish population (exomes) | gnomAD (exomes) |
+| gnomADe_MID_AF | Allele frequency in Middle Eastern population (exomes), when available | gnomAD (exomes) |
+| gnomADe_NFE_AF | Allele frequency in Non-Finnish European population (exomes) | gnomAD (exomes) |
+| gnomADe_REMAINING_AF | Allele frequency in remaining/other populations (exomes) | gnomAD (exomes) |
+| gnomADe_SAS_AF | Allele frequency in South Asian population (exomes) | gnomAD (exomes) |
+| gnomADg_AF | Overall allele frequency in gnomAD genomes | gnomAD (genomes) |
+| gnomADg_AFR_AF | Allele frequency in African population (genomes) | gnomAD (genomes) |
+| gnomADg_AMI_AF | Allele frequency in Amish population (genomes), when available | gnomAD (genomes) |
+| gnomADg_AMR_AF | Allele frequency in Admixed American population (genomes) | gnomAD (genomes) |
+| gnomADg_ASJ_AF | Allele frequency in Ashkenazi Jewish population (genomes) | gnomAD (genomes) |
+| gnomADg_EAS_AF | Allele frequency in East Asian population (genomes) | gnomAD (genomes) |
+| gnomADg_FIN_AF | Allele frequency in Finnish population (genomes) | gnomAD (genomes) |
+| gnomADg_MID_AF | Allele frequency in Middle Eastern population (genomes), when available | gnomAD (genomes) |
+| gnomADg_NFE_AF | Allele frequency in Non-Finnish European population (genomes) | gnomAD (genomes) |
+| gnomADg_REMAINING_AF | Allele frequency in remaining/other populations (genomes) | gnomAD (genomes) |
+| gnomADg_SAS_AF | Allele frequency in South Asian population (genomes) | gnomAD (genomes) |
+
+### Regulatory & motif annotations
+
+| Field | Description | Source |
+|------|-------------|--------|
+| MOTIF_NAME | Transcription factor binding motif name | Ensembl Regulatory Build |
+| MOTIF_POS | Position within the motif | Ensembl Regulatory Build |
+| HIGH_INF_POS | Indicates highly informative motif position | Ensembl |
+| MOTIF_SCORE_CHANGE | Change in motif score due to variant | Ensembl |
+| TRANSCRIPTION_FACTORS | Associated transcription factors | Ensembl |
+
+### SpliceAI & REVEL (VEP plugins)
+
+| Name | Description |
+|------|-------------|
+| SpliceAI_cutoff | Flag indicating whether the SpliceAI delta score passes the cutoff (PASS) or not (FAIL) |
+| SpliceAI_pred_DP_AG | SpliceAI (v1.3) predicted effect on splicing: delta position for acceptor gain |
+| SpliceAI_pred_DP_AL | SpliceAI (v1.3) predicted effect on splicing: delta position for acceptor loss |
+| SpliceAI_pred_DP_DG | SpliceAI (v1.3) predicted effect on splicing: delta position for donor gain |
+| SpliceAI_pred_DP_DL | SpliceAI (v1.3) predicted effect on splicing: delta position for donor loss |
+| SpliceAI_pred_DS_AG | SpliceAI (v1.3) predicted effect on splicing: delta score for acceptor gain |
+| SpliceAI_pred_DS_AL | SpliceAI (v1.3) predicted effect on splicing: delta score for acceptor loss |
+| SpliceAI_pred_DS_DG | SpliceAI (v1.3) predicted effect on splicing: delta score for donor gain |
+| SpliceAI_pred_DS_DL | SpliceAI (v1.3) predicted effect on splicing: delta score for donor loss |
+| SpliceAI_pred_SYMBOL | SpliceAI (v1.3) gene symbol |
+| REVEL | Missense pathogenicity score | 
+
+### CIViC annotations
+
+| Field | Description | Source |
+|------|-------------|--------|
+| CIViC | CIViC annotation presence | CIViC |
+| CIViC_GN | CIViC gene name | CIViC |
+| CIViC_VT | CIViC variant type | CIViC |
+| CIViC_CSQ | CIViC clinical consequence | CIViC |
+
+
+### ClinVar annotations
+| ClinVar | ClinVar annotation source VCF |
+| ClinVar_AF_ESP | ESP allele frequency from ClinVar |
+| ClinVar_AF_EXAC | ExAC allele frequency from ClinVar |
+| ClinVar_AF_TGP | 1000 Genomes allele frequency from ClinVar |
+| ClinVar_ALLELEID | ClinVar allele identifier |
+| ClinVar_CLNDN | ClinVar disease name |
+| ClinVar_CLNDNINCL | Included disease names from ClinVar |
+| ClinVar_CLNDISDB | ClinVar disease database |
+| ClinVar_CLNDISDBINCL | Included disease databases from ClinVar |
+| ClinVar_CLNHGVS | ClinVar HGVS notation |
+| ClinVar_CLNREVSTAT | ClinVar review status |
+| ClinVar_CLNSIG | ClinVar clinical significance |
+| ClinVar_CLNSIGCONF | ClinVar clinical significance confidence |
+| ClinVar_CLNSIGINCL | Included clinical significance terms |
+| ClinVar_CLNSIGSCV | ClinVar SCV identifiers |
+| ClinVar_CLNVC | ClinVar variant classification |
+| ClinVar_CLNVCSO | Sequence ontology term for variant class |
+| ClinVar_CLNVI | ClinVar variation identifier |
+| ClinVar_DBVARID | dbVar identifier |
+| ClinVar_GENEINFO | Gene information from ClinVar |
+| ClinVar_MC | Molecular consequence from ClinVar |
+| ClinVar_ONCDN | Oncology disease name |
+| ClinVar_ONCDNINCL | Included oncology disease names |
+| ClinVar_ONCDISDB | Oncology disease database |
+| ClinVar_ONCDISDBINCL | Included oncology disease databases |
+| ClinVar_ONC | Oncology clinical significance |
+| ClinVar_ONCINCL | Included oncology significance terms |
+| ClinVar_ONCREVSTAT | Oncology review status |
+| ClinVar_ONCSCV | Oncology SCV identifiers |
+| ClinVar_ONCCONF | Oncology confidence |
+| ClinVar_ORIGIN | Origin of the variant |
+| ClinVar_RS | dbSNP rsID |
+| ClinVar_SCIDN | Secondary condition disease name |
+| ClinVar_SCIDNINCL | Included secondary condition disease names |
+| ClinVar_SCIDISDB | Secondary condition disease database |
+| ClinVar_SCIDISDBINCL | Included secondary condition disease databases |
+| ClinVar_SCIREVSTAT | Secondary condition review status |
+| ClinVar_SCI | Secondary condition clinical significance |
+| ClinVar_SCIINCL | Included secondary condition significance |
+| ClinVar_SCISCV | Secondary condition SCV identifiers |
+
+### ClinVar annotations
+| CancerHotspots | Cancer Hotspots annotation source |
+| CancerHotspots_HOTSPOT | Hotspot flag |
+| CancerHotspots_HOTSPOT_GENE | Gene associated with hotspot |
+| CancerHotspots_HOTSPOT_HGVSp | Protein-level HGVS for hotspot |
+| CancerHotspots_HOTSPOT3D | 3D hotspot flag |
+| CancerHotspots_HOTSPOT3D_GENE | Gene associated with 3D hotspot |
+| CancerHotspots_HOTSPOT3D_HGVSp | Protein HGVS for 3D hotspot |
+| CancerHotspots_HOTSPOTNC | Non-coding hotspot flag |
+| CancerHotspots_HOTSPOTNC_GENE | Gene associated with non-coding hotspot |
+| CancerHotspots_HOTSPOTNC_HGVSc | Coding HGVS for non-coding hotspot |
+
+### OncoKB
+| ONCOKB_ONCOGENIC | OncoKB oncogenic classification |
+| ONCOKB_HOTSPOT | OncoKB hotspot flag |
+| ONCOKB_EFFECT | OncoKB known mutation effect |
+| ONCOKB_EFFECT_DESC | Description of mutation effect |
+| ONCOKB_SENS_LVL | Highest sensitive therapeutic level |
+| ONCOKB_RESIST_LVL | Highest resistance level |
+| ONCOKB_DIAG_LVL | Highest diagnostic implication level |
+| ONCOKB_PROG_LVL | Highest prognostic implication level |
+| ONCOKB_TREATMENTS | OncoKB treatment summary |
+| ONCOKB_GENE_SUMMARY | OncoKB gene summary |
+| ONCOKB_VARIANT_SUMMARY | OncoKB variant summary |
+| ONCOKB_TUMOR_TYPE_SUMMARY | OncoKB tumor type summary |
+| ONCOKB_DIAG_SUMMARY | OncoKB diagnostic summary |
+| ONCOKB_PROG_SUMMARY | OncoKB prognostic summary |
+| ONCOKB_VUS | OncoKB variant of unknown significance classification |
+| ONCOKB_GENE_EXIST | Indicates whether the gene is curated in OncoKB |
+| ONCOKB_VARIANT_EXIST | Indicates whether the variant is curated in OncoKB |
+| ONCOKB_DATA_VERSION | OncoKB data version |
+| ONCOKB_LAST_UPDATE | OncoKB last update date |
+| ONCOKB_JSON | Raw OncoKB JSON payload |
+| ONCOKB_QUERY_TYPE | OncoKB query type (e.g. MUTATION, CNA) |
+| hotspot | Known somatic site used to increase confidence in the call |
 
 ❌ ***I have left an example of one table in the the folder Output_Results***
 
@@ -186,6 +416,8 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 - [ ] Check what variants are rejected by liftover. We shouldn't reject many as all our variants in this step are PASS only.
 - [ ] Repeat the analysis twice (generic vs. tumour type) anc check what shows better annotation
 - [ ] Validation/test. I need to create a very small VCF with variants that shows all annotation in OncoKB. In a preliminar view, all variants are unkonwn. I need the final table to see is there is non-unknown variants or test with kown variants in a sitetic VCF and see what is going on. For instance I dont know the decistion taken to Handling Structural Insertions is correct. 
+- [X] Tools version
+- [X] Add all VEP annotation, including loeuf
 - [ ] Discussion needed about the final output table.
 
 ## Where the data in the ArchiveData server is
@@ -200,4 +432,14 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
     └── files                        # All TSO500 VCF files
         └── AnnotatedVEP             # 418 PASS, liftover-processed, and VEP-annotated TSO500 VCFs file + DoIt.log (log file showing liftover and VEP analysis records )
 ```
+
+## Tool Versions
+
+The following tool and format versions were used to generate the data:
+
+- Variant Call Format (VCF): version 4.2 (data provided by Birmingham)
+- GATK LiftoverVcf: version 4.6.0.0
+- Ensembl VEP: version 114.2
+- OncoKB: version 5.4
+- bcftools: version 1.21
 
