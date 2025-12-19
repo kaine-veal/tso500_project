@@ -294,6 +294,7 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 | gnomADg_NFE_AF | Allele frequency in Non-Finnish European population (genomes) | gnomAD (genomes) |
 | gnomADg_REMAINING_AF | Allele frequency in remaining/other populations (genomes) | gnomAD (genomes) |
 | gnomADg_SAS_AF | Allele frequency in South Asian population (genomes) | gnomAD (genomes) |
+| LOEUF | Loss-of-function observed/expected upper bound fraction | LOEUF |
 
 ### Regulatory & motif annotations
 

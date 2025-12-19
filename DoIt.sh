@@ -1,7 +1,6 @@
 echo "Cleaning previous results..."
 
-rm -f ./LiftOverVcf/*
-rm -f -r ./LiftOverVcf/Rejected/*
+rm -f -r ./LiftOverVcf/*
 rm -f ./AnnotatedVcf/*
 rm -f ./Stats/*
 rm -f ./FilteredVcf/*
@@ -58,7 +57,7 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
     #PASS_COUNT=$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
 
 
-    echo "###################### LiftOver: $sample ##########################################"
+    echo "###################### LiftOver STARTING: $sample ##########################################"
     ###############################################
     # Step 2 — LiftOver
     ###############################################
@@ -79,9 +78,9 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
     gunzip -c $LIFTED_VCF_GZ > $LIFTED_VCF
 
     LIFTED_COUNT=$(grep -v "^#" "$LIFTED_VCF" | wc -l)
+    echo "###################### LiftOver END: $sample ##########################################"
 
-
-    echo "###################### VEP annotating: $sample ##########################################"
+    echo "###################### VEP annotating STARTING: $sample ##########################################"
     ###############################################
     # Step 3 — VEP Annotation
     ###############################################
@@ -97,18 +96,20 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
         --fasta "$REF" \
         --plugin SpliceAI,snv=/mnt/data1/vep_test/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz,indel=/mnt/data1/vep_test/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz,cutoff=0.5 \
         --plugin REVEL,/mnt/data1/vep_test/REVEL/new_tabbed_revel_grch38.tsv.gz \
-        --custom /mnt/data1/vep_test/ClinVar/clinvar.vcf.gz,ClinVar,vcf,exact,0,CLNSIG,CLNREVSTAT,CLNDN \
+        --custom /mnt/data1/vep_test/ClinVar/clinvar.vcf.gz,ClinVar,vcf,exact,0,AF_ESP,AF_EXAC,AF_TGP,ALLELEID,CLNDN,CLNDNINCL,CLNDISDB,CLNDISDBINCL,CLNHGVS,CLNREVSTAT,CLNSIG,CLNSIGCONF,CLNSIGINCL,CLNSIGSCV,CLNVC,CLNVCSO,CLNVI,DBVARID,GENEINFO,MC,ONCDN,ONCDNINCL,ONCDISDB,ONCDISDBINCL,ONC,ONCINCL,ONCREVSTAT,ONCSCV,ONCCONF,ORIGIN,RS,SCIDN,SCIDNINCL,SCIDISDB,SCIDISDBINCL,SCIREVSTAT,SCI,SCIINCL,SCISCV \
         --custom /mnt/data1/vep_test/CIVIC/civic_01_10_25.vcf.gz,CIViC,vcf,exact,0,GN,VT,CSQ \
-        --custom /mnt/data1/vep_test/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz,CancerHotspots,vcf,exact,0,HOTSPOT,HOTSPOT_GENE,HOTSPOT_HGVS
+        --plugin LOEUF,file=/mnt/data1/vep_test/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz,match_by=transcript \
+        --custom /mnt/data1/vep_test/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz,CancerHotspots,vcf,exact,0,HOTSPOT,HOTSPOT_GENE,HOTSPOT_HGVSp,HOTSPOT3D,HOTSPOT3D_GENE,HOTSPOT3D_HGVSp,HOTSPOTNC,HOTSPOTNC_GENE,HOTSPOTNC_HGVSc
 
-
-    echo "###################### OncoKB annotation: $sample ##########################################"
+    echo "###################### VEP annotating END: $sample ##########################################"
+    echo "###################### OncoKB annotation STARTING: $sample ##########################################"
     ###############################################
     # Step 4 — OncoKB annotation
     ###############################################
     ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
 
-    python3 oncoKB-API.py "$ANNOTATED_VCF" "$ONCOKB_VCF"
+    python3 oncokb2.0.py "$ANNOTATED_VCF" "$ONCOKB_VCF" --tumor_mode=generic
+    echo "###################### OncoKB annotation END: $sample ##########################################"
 
     #ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
     ###############################################
@@ -134,3 +135,43 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
 
     echo "---"
 done
+
+
+
+# ANNOTATED_DIR="./AnnotatedVcf"
+# ONCOKB_DIR="./OncoKB_VCF"
+# TABLE="./Table"
+
+# mkdir -p "$ONCOKB_DIR" "$TABLE"
+
+# for vcf in "$ANNOTATED_DIR"/*_annotated.vcf; do
+#     [ -e "$vcf" ] || continue
+
+#     basename=$(basename "$vcf")
+#     sample="${basename%_annotated.vcf}"
+
+#     echo "###################### Processing: $sample ##########################################"
+
+#     ###############################################
+#     # Step 4 — OncoKB annotation
+#     ###############################################
+#     ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
+
+#     echo "###################### OncoKB annotation STARTING: $sample ##########################################"
+#     python3 oncokb2.0.py "$vcf" "$ONCOKB_VCF" --tumor_mode=generic
+#     echo "###################### OncoKB annotation END: $sample ##########################################"
+
+#     ###############################################
+#     # Step 4.5 — Convert Annotated VCF to Table
+#     ###############################################
+#     TABLE_CSV="$TABLE/${sample}.oncoKB.csv"
+
+#     echo "###################### VCF2TABLE: $sample ##########################################"
+#     python3 vcf2table.py \
+#         --vcf "$ONCOKB_VCF" \
+#         --transcripts TSO500_transcripts_list.txt \
+#         --output "$TABLE_CSV" \
+#         --debug
+
+#     echo "---"
+# done

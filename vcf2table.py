@@ -9,240 +9,147 @@ import argparse
 # Argument parser
 # ------------------------------------------------------------
 def get_args():
-    parser = argparse.ArgumentParser(description="Extract VEP+OncoKB annotations for selected NM transcripts (with fallback priority)")
+    parser = argparse.ArgumentParser(
+        description="Extract full VEP + OncoKB annotations for one selected transcript per variant"
+    )
     parser.add_argument("-v", "--vcf", required=True, help="Input VCF file")
-    parser.add_argument("-t", "--transcripts", required=True, help="Transcript list file (NM_...)")
+    parser.add_argument("-t", "--transcripts", required=True, help="Transcript whitelist file (NM_*)")
     parser.add_argument("-o", "--output", required=True, help="Output CSV file")
-    parser.add_argument("--vep-fields", default="vep_fields.txt", help="File containing VEP annotation fields")
-    parser.add_argument("--oncokb-fields", default="oncokb_fields.txt", help="File containing OncoKB annotation fields")
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("--debug", action="store_true")
     return parser.parse_args()
 
 
 # ------------------------------------------------------------
-# Load list from file
+# Load NM transcript whitelist
 # ------------------------------------------------------------
-def load_list(filename):
+def load_nm_transcripts(filename):
     with open(filename) as f:
-        return [line.strip() for line in f if line.strip()]
+        return {line.strip().split(".")[0] for line in f if line.strip()}
 
 
 # ------------------------------------------------------------
-# MAIN FUNCTION
+# MAIN
 # ------------------------------------------------------------
 def main():
 
     args = get_args()
 
-    print("\n=== extract_annotation.py ===")
+    # --------------------------------------------------------
+    # Parse VCF header
+    # --------------------------------------------------------
+    CSQ_FIELDS = None
+    VCF_COLUMNS = None
 
-    # -----------------------------
-    # Load VEP + OncoKB field names
-    # -----------------------------
-    VEP_FIELDS = load_list(args.vep_fields)
-    ONCOKB_FIELDS = load_list(args.oncokb_fields)
+    with open(args.vcf) as f:
+        for line in f:
+            if line.startswith("##INFO=<ID=CSQ"):
+                m = re.search(r'Format: (.+)">', line)
+                CSQ_FIELDS = m.group(1).split("|")
 
-    print(f"Loaded {len(VEP_FIELDS)} VEP fields from: {args.vep_fields}")
-    print(f"Loaded {len(ONCOKB_FIELDS)} OncoKB fields from: {args.oncokb_fields}")
+            elif line.startswith("#CHROM"):
+                VCF_COLUMNS = line.strip().lstrip("#").split("\t")
+                break
 
-    # -----------------------------
-    # Load transcript whitelist
-    # -----------------------------
-    with open(args.transcripts) as f:
-        nm_transcripts = {
-            line.strip().split(".")[0]      # strip version
-            for line in f if line.strip()
-        }
+    if not CSQ_FIELDS:
+        raise RuntimeError("CSQ header not found")
 
-    print(f"Loaded {len(nm_transcripts)} NM transcripts from: {args.transcripts}")
+    nm_transcripts = load_nm_transcripts(args.transcripts)
 
     rows = []
 
-    # Debug counters
-    total_variants = 0
-    variants_with_csq = 0
-    chosen_transcripts = 0
-    fallback_used = 0
-
-    # -----------------------------
-    # Parse VCF
-    # -----------------------------
-    print(f"Reading VCF: {args.vcf}")
-
+    # --------------------------------------------------------
+    # Parse variants
+    # --------------------------------------------------------
     with open(args.vcf) as f:
         for line in f:
             if line.startswith("#"):
                 continue
 
-            total_variants += 1
-            fields = line.strip().split("\t")
-            chrom, pos, _id, ref, alt, qual, filt, info = fields[:8]
+            values = line.rstrip("\n").split("\t")
+            record = dict(zip(VCF_COLUMNS, values))
 
-            # Extract VEP CSQ annotation
-            m = re.search(r"CSQ=([^;]+)", info)
-            if not m:
-                # Variant has NO VEP annotation
-                empty_vep = {field: "" for field in VEP_FIELDS}
-                print(f"[NO CSQ] {chrom}:{pos} {ref}>{alt}")
+            info_raw = record.pop("INFO")
 
-                # Extract OncoKB fields if present
-                onc = {}
-                for key in ONCOKB_FIELDS:
-                    m2 = re.search(rf"{key}=([^;]+)", info)
-                    onc[key] = m2.group(1) if m2 else ""
+            # Parse INFO safely
+            info = {}
+            for part in info_raw.split(";"):
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    info[k] = v
+                else:
+                    info[part] = True
 
-                rows.append({
-                    "CHROM": chrom,
-                    "POS": pos,
-                    "REF": ref,
-                    "ALT": alt,
-                    "NM_Transcript": "",
-                    **empty_vep,
-                    **onc
-                })
+            csq_raw = info.pop("CSQ", None)
 
-                if args.debug:
-                    print(f"[DEBUG] Variant without CSQ → included: {chrom}:{pos}")
+            # Initialize row with all non-INFO VCF columns
+            row = dict(record)
 
-                continue
+            # ------------------------------------------------
+            # Handle CSQ
+            # ------------------------------------------------
+            selected_vep = {f: "" for f in CSQ_FIELDS}
+            nm_selected = ""
 
-            variants_with_csq += 1
-            csq_entries = m.group(1).split(",")
+            if csq_raw:
+                for csq in csq_raw.split(","):
+                    fields = csq.split("|")
+                    if len(fields) < len(CSQ_FIELDS):
+                        fields.extend([""] * (len(CSQ_FIELDS) - len(fields)))
 
-            # Priority buckets
-            best_entry = None
-            mane_entries = []
-            canonical_entries = []
-            protein_coding_entries = []
-            all_entries = []
+                    vep = dict(zip(CSQ_FIELDS, fields))
 
-            # -----------------------------
-            # Evaluate all CSQ entries
-            # -----------------------------
-            for csq in csq_entries:
-                csq_fields = csq.split("|")
-                if len(csq_fields) < len(VEP_FIELDS):
-                    continue
+                    nm = ""
+                    for key in ("MANE_SELECT", "MANE", "MANE_PLUS_CLINICAL"):
+                        if vep.get(key, "").startswith("NM_"):
+                            nm = vep[key].split(".")[0]
+                            break
 
-                vep = dict(zip(VEP_FIELDS, csq_fields))
-                all_entries.append(vep)
+                    if not nm and vep.get("HGVSc", "").startswith("NM_"):
+                        nm = vep["HGVSc"].split(":")[0].split(".")[0]
 
-                # Extract possible NM transcript
-                nm_trans = ""
-
-                for key in ("MANE_SELECT", "MANE", "MANE_PLUS_CLINICAL"):
-                    val = vep.get(key, "")
-                    if val.startswith("NM_"):
-                        nm_trans = val.split(".")[0]
+                    if nm in nm_transcripts:
+                        selected_vep = vep
+                        nm_selected = nm
                         break
 
-                if not nm_trans:
-                    hgvsc = vep.get("HGVSc", "")
-                    if hgvsc.startswith("NM_"):
-                        nm_trans = hgvsc.split(":")[0].split(".")[0]
+                if not nm_selected:
+                    selected_vep = dict(zip(CSQ_FIELDS, fields))
+                    nm_selected = nm
 
-                # Case 1: NM transcript that matches whitelist → highest priority
-                if nm_trans in nm_transcripts:
-                    best_entry = (vep, nm_trans)
-                    if args.debug:
-                        print(f"[DEBUG] NM transcript match: {nm_trans}")
-                    break
+            row["NM_Transcript"] = nm_selected
+            row.update(selected_vep)
 
-                # Fill fallback buckets
-                if vep.get("MANE_SELECT", "").startswith("NM_"):
-                    mane_entries.append(vep)
+            # ------------------------------------------------
+            # Add remaining INFO fields (OncoKB, etc.)
+            # ------------------------------------------------
+            for k, v in info.items():
+                row[k] = v
 
-                if vep.get("CANONICAL") == "YES":
-                    canonical_entries.append(vep)
+            rows.append(row)
 
-                if vep.get("BIOTYPE") == "protein_coding":
-                    protein_coding_entries.append(vep)
-
-            # -----------------------------
-            # Select best fallback entry
-            # -----------------------------
-            nm_trans = ""
-
-            if not best_entry:
-                fallback_used += 1
-
-                if mane_entries:
-                    vep = mane_entries[0]
-                elif canonical_entries:
-                    vep = canonical_entries[0]
-                elif protein_coding_entries:
-                    vep = protein_coding_entries[0]
-                elif all_entries:
-                    vep = all_entries[0]
-                else:
-                    continue  # shouldn't happen
-
-                # Try assigning NM transcript if possible
-                mane_val = vep.get("MANE_SELECT", "")
-                if mane_val.startswith("NM_"):
-                    nm_trans = mane_val.split(".")[0]
-
-                best_entry = (vep, nm_trans)
-
-                if args.debug:
-                    print(f"[DEBUG] Fallback used: MANE/canonical/coding/first")
-
-            # Final selected entry
-            vep, nm_trans = best_entry
-            chosen_transcripts += 1
-
-            # -----------------------------
-            # Extract OncoKB annotations
-            # -----------------------------
-            onc = {}
-            for key in ONCOKB_FIELDS:
-                m2 = re.search(rf"{key}=([^;]+)", info)
-                onc[key] = m2.group(1) if m2 else ""
-
-            # -----------------------------
-            # Store final row
-            # -----------------------------
-            rows.append({
-                "CHROM": chrom,
-                "POS": pos,
-                "REF": ref,
-                "ALT": alt,
-                "NM_Transcript": nm_trans,
-                **vep,
-                **onc
-            })
-
-    # -----------------------------
-    # Debug summary
-    # -----------------------------
-    print("\n=== SUMMARY ===")
-    print(f"Total variants parsed:          {total_variants}")
-    print(f"Variants with CSQ:              {variants_with_csq}")
-    print(f"Selected transcript entries:    {chosen_transcripts}")
-    print(f"Fallback selections used:       {fallback_used}")
-    print(f"Rows to be written:             {len(rows)}")
-    print("====================\n")
-
-    # -----------------------------
-    # Write output CSV
-    # -----------------------------
+    # --------------------------------------------------------
+    # Build output columns
+    # --------------------------------------------------------
     output_columns = (
-        ["CHROM","POS","REF","ALT","NM_Transcript"] +
-        VEP_FIELDS +
-        ONCOKB_FIELDS
+        [c for c in VCF_COLUMNS if c != "INFO"] +
+        ["NM_Transcript"] +
+        CSQ_FIELDS +
+        sorted({k for r in rows for k in r} -
+               set(VCF_COLUMNS) -
+               set(CSQ_FIELDS) -
+               {"NM_Transcript"})
     )
 
+    # --------------------------------------------------------
+    # Write CSV
+    # --------------------------------------------------------
     with open(args.output, "w", newline="") as out:
         writer = csv.DictWriter(out, fieldnames=output_columns)
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"✓ Wrote {len(rows)} rows to {args.output}")
-    print("✓ Done.\n")
+    print(f"✓ Wrote {len(rows)} rows with {len(output_columns)} columns")
 
 
-# ------------------------------------------------------------
-# ENTRY POINT
-# ------------------------------------------------------------
 if __name__ == "__main__":
     main()
