@@ -430,6 +430,7 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 - [X] Tools version
 - [X] Add all VEP annotation, including loeuf
 - [ ] Discussion needed about the final output table.
+- [ ] Run VEP in tab version and check all annotation (apart from oncoKB) is what we found in the final table.
 
 ## Where the data in the ArchiveData server is
 ```bash
