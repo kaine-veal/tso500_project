@@ -432,6 +432,7 @@ Crucially, it implements the **exact same 3-Tier Transcript Selection Logic** as
 - [ ] Discussion needed about the final output table.
 - [ ] Run VEP in tab version and check all annotation (apart from oncoKB) is what we found in the final table.
 - [ ] VALIDATION: Ian suggested providing variants with known annotations to ensure the annotation process makes sense, which is especially important for OncoKB.
+- [ ] To add sample name in the final table.
 
 ## Where the data in the ArchiveData server is
 ```bash
