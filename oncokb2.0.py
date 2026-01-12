@@ -69,7 +69,7 @@ REFERENCE_GENOME = "GRCh38"
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
-ONCOKB_TOKEN = ""
+ONCOKB_TOKEN = "b1c06077-370f-47d9-b5df-7a9fede45da1"
 
 
 def load_preferred_transcripts(file_path: str) -> set:
