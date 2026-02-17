@@ -3,6 +3,7 @@
 import csv
 import re
 import argparse
+import pandas as pd
 
 
 # ------------------------------------------------------------
@@ -14,7 +15,7 @@ def get_args():
     )
     parser.add_argument("-v", "--vcf", required=True, help="Input VCF file")
     parser.add_argument("-t", "--transcripts", required=True, help="Transcript whitelist file (NM_*)")
-    parser.add_argument("-o", "--output", required=True, help="Output CSV file")
+    parser.add_argument("-o", "--output", required=True, help="Final output file")
     parser.add_argument("--debug", action="store_true")
     return parser.parse_args()
 
@@ -28,11 +29,9 @@ def load_nm_transcripts(filename):
 
 
 # ------------------------------------------------------------
-# MAIN
+# MAIN: parse VCF → return DataFrame
 # ------------------------------------------------------------
-def main():
-
-    args = get_args()
+def main(args):
 
     # --------------------------------------------------------
     # Parse VCF header
@@ -54,7 +53,6 @@ def main():
         raise RuntimeError("CSQ header not found")
 
     nm_transcripts = load_nm_transcripts(args.transcripts)
-
     rows = []
 
     # --------------------------------------------------------
@@ -119,9 +117,7 @@ def main():
             row["NM_Transcript"] = nm_selected
             row.update(selected_vep)
 
-            # ------------------------------------------------
-            # Add remaining INFO fields (OncoKB, etc.)
-            # ------------------------------------------------
+            # Add remaining INFO fields
             for k, v in info.items():
                 row[k] = v
 
@@ -140,16 +136,131 @@ def main():
                {"NM_Transcript"})
     )
 
+    # First: build the DataFrame
+    df = pd.DataFrame(rows, columns=output_columns)
+
+    # Nothing else here — keep FORMAT and sample column as-is
+    return df
+
+
+
+
+# ------------------------------------------------------------
+# Additional requirements
+# ------------------------------------------------------------
+def calculate_end(row):
+    pos = int(row["POS"])
+    ref = str(row["REF"])
+    alt = str(row["ALT"])
+    variant_class = str(row.get("VARIANT_CLASS", "")).lower()
+
+    if variant_class == "snv":
+        return pos
+
+    if variant_class == "chromosome_breakpoint":
+        return ""
+
+    if variant_class == "insertion":
+        svlen = row.get("SVLEN")
+        if pd.notna(svlen):
+            try:
+                svlen = int(str(svlen).split(",")[0])
+                return pos + svlen - 1
+            except ValueError:
+                pass
+        return pos + len(alt) - 1
+
+    if variant_class == "deletion":
+        return pos + len(ref) - 1
+
+    return pos
+
+
+aa_dict = {
+    "Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D", "Cys": "C",
+    "Gln": "Q", "Glu": "E", "Gly": "G", "His": "H", "Ile": "I",
+    "Leu": "L", "Lys": "K", "Met": "M", "Phe": "F", "Pro": "P",
+    "Ser": "S", "Thr": "T", "Trp": "W", "Tyr": "Y", "Val": "V",
+    "Ter": "*",
+}
+
+def convert_hgvsp_short(hgvsp):
+    if not isinstance(hgvsp, str) or "p." not in hgvsp:
+        return ""
+    match = re.search(r"p\.([A-Za-z]+)(\d+)([A-Za-z\*]+)", hgvsp)
+    if match:
+        ref, pos, alt = match.groups()
+        return f"p.{aa_dict.get(ref, ref)}{pos}{aa_dict.get(alt, alt)}"
+    return hgvsp.split(":")[-1]
+
+
+def final_requiretments(df, output_csv):
+
+    if "END" not in df.columns:
+        df["END"] = df.apply(calculate_end, axis=1)
+
+    fixed_cols = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "FORMAT"]
+    sample_candidates = [c for c in df.columns if c not in fixed_cols]
+    sample_col = sample_candidates[0] if sample_candidates else None
+
+    df["NCBI_Build"] = "GRCh38"
+    df["Tumor_Sample_Barcode"] = sample_col if sample_col else ""
+
+    if "HGVSp" in df.columns:
+        df["HGVSp_Short"] = df["HGVSp"].apply(convert_hgvsp_short)
+    else:
+        df["HGVSp_Short"] = ""
+
+    df["Hugo_Symbol"] = df["SYMBOL"] if "SYMBOL" in df.columns else ""
+
+    df["Chromosome"] = df["CHROM"]
+    df["Start_Position"] = df["POS"]
+    df["End_Position"] = df["END"]
+    df["Reference_Allele"] = df["REF"]
+    df["Tumor_Seq_Allele1"] = df["ALT"]
+    df["Tumor_Seq_Allele2"] = df["ALT"]
+
+    first_cols = [
+        "NCBI_Build", "Hugo_Symbol", "Tumor_Sample_Barcode",
+        "HGVSp_Short", "HGVSp", "Chromosome", "Start_Position",
+        "End_Position", "Reference_Allele", "Tumor_Seq_Allele1",
+        "Tumor_Seq_Allele2",
+    ]
+
+    first_cols = [c for c in first_cols if c in df.columns]
+    remaining = [c for c in df.columns if c not in first_cols]
+
+    df = df[first_cols + remaining]
+
     # --------------------------------------------------------
-    # Write CSV
+    # Expand ONCOKB_JSON into separate columns and move to end
     # --------------------------------------------------------
-    with open(args.output, "w", newline="") as out:
-        writer = csv.DictWriter(out, fieldnames=output_columns)
-        writer.writeheader()
-        writer.writerows(rows)
+    if "ONCOKB_JSON" in df.columns:
+        import json
+        from pandas import json_normalize
 
-    print(f"✓ Wrote {len(rows)} rows with {len(output_columns)} columns")
+        # Parse JSON safely
+        parsed = df["ONCOKB_JSON"].apply(
+            lambda x: json.loads(x) if isinstance(x, str) and x.strip().startswith("{") else {}
+        )
+
+        # Deep flatten JSON (max_level=None allows full expansion)
+        expanded = json_normalize(parsed, sep=".", max_level=None)
+
+        # Prefix to avoid collisions
+        expanded.columns = [f"ONCOKB_{c}" for c in expanded.columns]
+
+        # Rebuild dataframe: original columns → expanded JSON → raw JSON at end
+        df_no_json = df.drop(columns=["ONCOKB_JSON"])
+        df = pd.concat([df_no_json, expanded, df["ONCOKB_JSON"]], axis=1)
+    print(output_csv)
+    df.to_csv(output_csv, index=False, sep="\t")
 
 
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    args = get_args()
+    df = main(args)
+    final_requiretments(df, args.output)

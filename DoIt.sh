@@ -1,34 +1,84 @@
-echo "Cleaning previous results..."
 
-rm -f -r ./LiftOverVcf/*
-rm -f ./AnnotatedVcf/*
-rm -f ./Stats/*
-rm -f ./FilteredVcf/*
-rm -f ./OncoKB_VCF/*
-rm -f ./Table/*
+set -euo pipefail
 
-BCFTOOLS="apptainer exec --bind $(pwd):/mnt --bind /mnt/data1:/mnt/data1 --bind /mnt/scratch1:/mnt/scratch1 docker://quay.io/biocontainers/bcftools:1.21--h3a4d415_1 bcftools"
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------------------
+# This pipeline processes raw DRAGEN VCF files through a full clinical‑style annotation
+# workflow. This script is designed to work across many samples (VCFs) 
+# It performs the following steps for each sample:
+#
+#   1. Cleanup of previous results to ensure a fresh run.
+#       Temporary files are not deleted until new execution. For debugging, etc
+#   2.  Filter variants to retain only PASS calls.
+#
+#   3.  LiftOver variants from hg19 to GRCh38.
+#
+#   4.  Annotate lifted variants using Ensembl VEP with
+#      multiple plugins (SpliceAI, REVEL, LOEUF, ClinVar, CIViC, CancerHotspots, etc.).
+#
+#   5. Annotate the VEP‑processed VCF using OncoKB (oncokb2.0.py), producing an
+#      OncoKB‑enriched VCF for each sample.
+#
+#   6. Convert the OncoKB‑annotated VCF into a tabular format using vcf2table.py.
+#      This step extracts VEP annotations, INFO fields, FORMAT/sample fields, and
+#      expands the embedded OncoKB JSON into individual columns.
+#
+#   7. Run the OncoKB MafAnnotator to produce a final MAF‑style annotated table
+#      suitable for downstream reporting or clinical interpretation.
+#
+#   8. Generate a summary file (variant_counts2.txt) containing per‑sample counts
+#      for each major processing stage.
+#
+# How to run:
+#   - Conda activate TSO500
+#   - Put Original Dragen VCF files in AnnotatedVCF folder
+#   - nohup ./DoIt.sh > DoIt.log 2>&1 &
+#   - This will run in the wglsbi03 background and a log file will be created.
+#   - or run directly ./DoIt.sh 
+# Author: Manuel, Kaine and Ian
+# -----------------------------------------------------------------------------------------
 
-echo "Cleanup complete. Generating new results..."
+#ONCOKB_TOKEN="b1c06077-370f-47d9-b5df-7a9fede45da1"
+ONCOKB_TOKEN="$1"
 
+# Create the folders where tmp and final files will be saved
 INPUT_DIR="./OriginalVcf"
 FILTERED_DIR="./FilteredVcf"
 OUTPUT_DIR="./LiftOverVcf"
 REJECT_DIR="./LiftOverVcf/Rejected"
 ANNOTATED_DIR="./AnnotatedVcf"
-STATS="./Stats"
 ONCOKB_DIR="./OncoKB_VCF"
 TABLE="./Table"
+FINAL_TABLE="./FINAL_Table"
+mkdir -p "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$ONCOKB_DIR" "$TABLE" "$FINAL_TABLE"
 
+
+echo "Cleaning previous results..."
+# Better to do this just in case some tools don't like rewrite
+
+rm -f  ./LiftOverVcf/*gz ./LiftOverVcf/*tbi
+rm -f  ./LiftOverVcf/Rejected/* 
+rm -f ./AnnotatedVcf/*
+rm -f ./FilteredVcf/*
+rm -f ./OncoKB_VCF/*
+rm -f ./Table/*
+rm -f ./FINAL_Table/*
+
+echo "Cleanup complete. Generating new results..."
+
+# The chain and the fasta file needed for lift over
 CHAIN="/root/vep_sample_test/manuel/DoItAll/liftover/hg19ToHg38.over.chain"
 REF="/root/vep_sample_test/manuel/DoItAll/liftover/hg38.fa"
 
-mkdir -p "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$STATS" "$ONCOKB_DIR" "$TABLE"
-
+# When working with many samples, I wanted to ensure the number of variants
+# in each step, to ensure I dont lose variants:
 COUNT_FILE="./variant_counts.txt"
-echo -e "Sample\tOriginal\tPASS\tLifted\tVEP_Annotated\tOncoKB_Annotated" > "$COUNT_FILE"
 
+# The header of this table
+echo -e "Sample\tOriginal_Variants\tPASS_Variants\tLifted_Variants\tVEP_Annotated_Variants\tOncoKB_Annotated_Variants\tVariantsInTable\tVariantsInFinalTable" > "$COUNT_FILE"
 
+# The loop that does all the work.
+# For each VCF found in $INPUT_DIR (the original VCF without annotation)
 for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
     [ -e "$vcf" ] || continue
 
@@ -37,15 +87,14 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
 
     echo "###################### Processing: $sample ##########################################"
 
-    # Count total variants in original VCF
-    ORIGINAL_COUNT=$(zgrep -v "^#" "$vcf" | wc -l)
-
-    #$BCFTOOLS stats -f PASS $vcf > $STATS/${sample}_PASS.stat.txt
-
-
     ###############################################
-    # Step 1 — PASS filtering
+    # Step 2 — PASS filtering
     ###############################################
+
+    # I filter variants to select only PASS variants
+    # Becaouse low quality variants return many issues downstream
+    # e.g., many Low QUAL variants are rejected by the lift over
+
     FILTERED_VCF="$FILTERED_DIR/${sample}.PASS_only.vcf.gz"
 
     zcat "$vcf" \
@@ -54,12 +103,9 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
 
     tabix -p vcf "$FILTERED_VCF"
 
-    #PASS_COUNT=$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
-
-
     echo "###################### LiftOver STARTING: $sample ##########################################"
     ###############################################
-    # Step 2 — LiftOver
+    # Step 3 — LiftOver
     ###############################################
     LIFTED_VCF_GZ="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf.gz"
     LIFTED_VCF="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf"
@@ -80,7 +126,7 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
     LIFTED_COUNT=$(grep -v "^#" "$LIFTED_VCF" | wc -l)
     echo "###################### LiftOver END: $sample ##########################################"
 
-    echo "###################### VEP annotating STARTING: $sample ##########################################"
+    # echo "###################### VEP annotating STARTING: $sample ##########################################"
     ###############################################
     # Step 3 — VEP Annotation
     ###############################################
@@ -93,6 +139,7 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
         --dir /mnt/data1/vep_test \
         --dir_plugins /mnt/data1/vep_test/Plugins \
         --assembly GRCh38 \
+        --no_escape \
         --fasta "$REF" \
         --plugin SpliceAI,snv=/mnt/data1/vep_test/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz,indel=/mnt/data1/vep_test/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz,cutoff=0.5 \
         --plugin REVEL,/mnt/data1/vep_test/REVEL/new_tabbed_revel_grch38.tsv.gz \
@@ -101,77 +148,74 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
         --plugin LOEUF,file=/mnt/data1/vep_test/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz,match_by=transcript \
         --custom /mnt/data1/vep_test/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz,CancerHotspots,vcf,exact,0,HOTSPOT,HOTSPOT_GENE,HOTSPOT_HGVSp,HOTSPOT3D,HOTSPOT3D_GENE,HOTSPOT3D_HGVSp,HOTSPOTNC,HOTSPOTNC_GENE,HOTSPOTNC_HGVSc
 
-    echo "###################### VEP annotating END: $sample ##########################################"
+    # echo "###################### VEP annotating END: $sample ##########################################"
     echo "###################### OncoKB annotation STARTING: $sample ##########################################"
     ###############################################
     # Step 4 — OncoKB annotation
     ###############################################
     ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
 
-    python3 oncokb2.0.py "$ANNOTATED_VCF" "$ONCOKB_VCF" --tumor_mode=generic
+    # Skip if OncoKB output already exists
+    if [ -f "$ONCOKB_VCF" ]; then
+        echo "OncoKB VCF already exists for $sample — skipping OncoKB step."
+        continue
+    fi
+
+    python3 oncokb2.0.py "$ANNOTATED_VCF" "$ONCOKB_VCF" --tumor_mode=generic --oncokb_token=$ONCOKB_TOKEN
+    # Generic mode does not assign a tumour‑specific annotation.
+    # This is likely the recommended approach for this project, but if needed,
+    # oncokb2.0.py can extract the tumour name from the filename.
+    # However, the tumour name in the filename is not always valid, so some
+    # replacements are applied to assign a standardised tumour name.
+
     echo "###################### OncoKB annotation END: $sample ##########################################"
 
-    #ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
+    ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
     ###############################################
     # Step 4.5 — Convert Annotated VCF to Table
     ###############################################
     echo "###################### VCF2TABLE: $sample ##########################################"
     TABLE_CSV="$TABLE/${sample}.oncoKB.csv"
-
+    # This script converts a VCF into a lightweight MAF-style file,
+    # which is sufficient for compatibility with the OncoKB MafAnnotator.
     python3 vcf2table.py \
         --vcf "$ONCOKB_VCF" \
         --transcripts TSO500_transcripts_list.txt \
         --output "$TABLE_CSV" \
         --debug
+    
+    ###############################################
+    # Step 4.6 — OncoKB MafAnnotator
+    ###############################################
+    echo "###################### MafAnnotator: $sample ##########################################"
 
-    ###############################################
-    # Step 5 — Count summary
-    ###############################################
-    PASS_COUNT=$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
-    ANNOTATED_COUNT=$(grep -v "^#" "$ANNOTATED_VCF" | wc -l)
+    ANNOTATED_MAF="$FINAL_TABLE/${sample}.oncoKB.maf"
+
+    python3 ../oncokb-annotator/MafAnnotator.py \
+        -i "$TABLE_CSV" \
+        -o "$ANNOTATED_MAF" \
+        -b "$ONCOKB_TOKEN"
+
+
+    # ###############################################
+    # # Step 5 — Count summary
+    # ###############################################
+    
+    ORIGINAL_COUNT=0
+    #$(zgrep -v "^#" "$vcf" | wc -l)
+    PASS_COUNT=0
+    #$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
+    LIFTED_COUNT=0
+    ANNOTATED_COUNT=0
+    #=$(grep -v "^#" "$ANNOTATED_VCF" | wc -l)
     ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
+    TABLE_COUNT=$(($(wc -l < "$TABLE_CSV") - 1))
 
-    echo -e "${sample}\t${ORIGINAL_COUNT}\t${PASS_COUNT}\t${LIFTED_COUNT}\t${ANNOTATED_COUNT}\t${ONCOKB_COUNT}" >> "$COUNT_FILE"
+    mv $ANNOTATED_VCF AnnotatedVcf_DONE
+
+    echo -e "${sample}\t${ORIGINAL_COUNT}\t${PASS_COUNT}\t${LIFTED_COUNT}\t${ANNOTATED_COUNT}\t${ONCOKB_COUNT}\t${TABLE_COUNT}" >> "$COUNT_FILE"
 
     echo "---"
 done
 
-
-
-# ANNOTATED_DIR="./AnnotatedVcf"
-# ONCOKB_DIR="./OncoKB_VCF"
-# TABLE="./Table"
-
-# mkdir -p "$ONCOKB_DIR" "$TABLE"
-
-# for vcf in "$ANNOTATED_DIR"/*_annotated.vcf; do
-#     [ -e "$vcf" ] || continue
-
-#     basename=$(basename "$vcf")
-#     sample="${basename%_annotated.vcf}"
-
-#     echo "###################### Processing: $sample ##########################################"
-
-#     ###############################################
-#     # Step 4 — OncoKB annotation
-#     ###############################################
-#     ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
-
-#     echo "###################### OncoKB annotation STARTING: $sample ##########################################"
-#     python3 oncokb2.0.py "$vcf" "$ONCOKB_VCF" --tumor_mode=generic
-#     echo "###################### OncoKB annotation END: $sample ##########################################"
-
-#     ###############################################
-#     # Step 4.5 — Convert Annotated VCF to Table
-#     ###############################################
-#     TABLE_CSV="$TABLE/${sample}.oncoKB.csv"
-
-#     echo "###################### VCF2TABLE: $sample ##########################################"
-#     python3 vcf2table.py \
-#         --vcf "$ONCOKB_VCF" \
-#         --transcripts TSO500_transcripts_list.txt \
-#         --output "$TABLE_CSV" \
-#         --debug
-
-#     echo "---"
-# done
+echo "DONE"

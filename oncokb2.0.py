@@ -404,8 +404,8 @@ def map_svtype_to_cna(svtype: str, variant_id: str) -> str | None:
 # ---------------------------------------------------------
 # MAIN FUNCTION — Annotate VCF
 # ---------------------------------------------------------
-def annotate_vcf(input_vcf: str, output_vcf: str, tumor_mode: str):
-    token = ONCOKB_TOKEN
+def annotate_vcf(input_vcf: str, output_vcf: str, tumor_mode: str, oncokb_token: str):
+    token = oncokb_token
 
     if tumor_mode == 'filename':
         tumor_type = get_cancer_from_filename(input_vcf)
@@ -560,8 +560,10 @@ if __name__ == "__main__":
     parser.add_argument("input_vcf", help="Input VCF file annotated by VEP.")
     parser.add_argument("output_vcf", help="Output VCF file.")
     parser.add_argument("--tumor_mode", choices=['filename', 'generic'], default='filename',
-        help="Tumor type logic: 'filename' (infer from name) or 'generic' (UNKNOWN).")
+        help="Tumor type logic: 'filename' (infer from name) or 'generic' (UNKNOWN)."),
+    parser.add_argument("--oncokb_token", help="Token to get access to the API.")
+
 
     args = parser.parse_args()
 
-    annotate_vcf(args.input_vcf, args.output_vcf, args.tumor_mode)
+    annotate_vcf(args.input_vcf, args.output_vcf, args.tumor_mode, args.oncokb_token)
