@@ -123,10 +123,9 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
 
     gunzip -c $LIFTED_VCF_GZ > $LIFTED_VCF
 
-    LIFTED_COUNT=$(grep -v "^#" "$LIFTED_VCF" | wc -l)
     echo "###################### LiftOver END: $sample ##########################################"
 
-    # echo "###################### VEP annotating STARTING: $sample ##########################################"
+    echo "###################### VEP annotating STARTING: $sample ##########################################"
     ###############################################
     # Step 3 — VEP Annotation
     ###############################################
@@ -170,7 +169,6 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
 
     echo "###################### OncoKB annotation END: $sample ##########################################"
 
-    ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
     ###############################################
     # Step 4.5 — Convert Annotated VCF to Table
     ###############################################
@@ -201,21 +199,23 @@ for vcf in "$INPUT_DIR"/*.dragen.concat_snv_sv.vcf.gz; do
     # # Step 5 — Count summary
     # ###############################################
     
-    ORIGINAL_COUNT=0
-    #$(zgrep -v "^#" "$vcf" | wc -l)
-    PASS_COUNT=0
-    #$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
-    LIFTED_COUNT=0
-    ANNOTATED_COUNT=0
-    #=$(grep -v "^#" "$ANNOTATED_VCF" | wc -l)
+    ORIGINAL_COUNT=$(zgrep -v "^#" "$vcf" | wc -l)
+    PASS_COUNT=$(zgrep -v "^#" "$FILTERED_VCF" | wc -l)
+    LIFTED_COUNT=$(grep -v "^#" "$LIFTED_VCF" | wc -l)
+    ANNOTATED_COUNT=$(grep -v "^#" "$ANNOTATED_VCF" | wc -l)
     ONCOKB_COUNT=$(grep -v "^#" "$ONCOKB_VCF" | wc -l)
     TABLE_COUNT=$(($(wc -l < "$TABLE_CSV") - 1))
-
-    mv $ANNOTATED_VCF AnnotatedVcf_DONE
 
     echo -e "${sample}\t${ORIGINAL_COUNT}\t${PASS_COUNT}\t${LIFTED_COUNT}\t${ANNOTATED_COUNT}\t${ONCOKB_COUNT}\t${TABLE_COUNT}" >> "$COUNT_FILE"
 
     echo "---"
 done
+
+echo "###################### Post Analysis step ##########################################"
+
+# This is a final data management step to merge all tables in one
+# and organise the final table deleting unnecesary columns, adding the
+# the second header, etc
+python3 post_analysis.py
 
 echo "DONE"

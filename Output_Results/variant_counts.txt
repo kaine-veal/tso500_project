@@ -1,0 +1,2 @@
+Sample	Original_Variants	PASS_Variants	Lifted_Variants	VEP_Annotated_Variants	OncoKB_Annotated_Variants	VariantsInTable	VariantsInFinalTable
+D12_12345_123456_Thyroid_S9	5003	1289	1275	1275	1275	1275

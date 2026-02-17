@@ -21,7 +21,7 @@ This pipeline relies heavily on containerization and specific tools. Ensure you 
 2.  **GATK (v4.6.0.0 or later):** Used for the LiftOver step (run via Apptainer).
 3.  **VEP (Variant Effect Predictor):** Installed locally with necessary plugins (SpliceAI, REVEL) and custom databases (ClinVar, CIViC, CancerHotspots).
 4.  **Custom Python Scripts:**
-    * `oncoKB-API.py`: For communicating with the OncoKB API and annotating the VCF.
+    * `oncokb2.0.py`: For communicating with the OncoKB API and annotating the VCF.
     * `vcf2table.py`: For parsing the final VCF and generating a CSV table, using a transcript list (`TSO500_transcripts_list.txt`).
 5.  **Reference Files:**
     * **Chain File:** `hg19ToHg38.over.chain` for LiftOver.
