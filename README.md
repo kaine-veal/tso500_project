@@ -9,9 +9,10 @@ The script iterates through all compressed VCF files (`.vcf.gz`) located in the 
 * **Filtering:** Keeps only variants marked as `PASS`.
 * **LiftOver:** Converts genomic coordinates from **hg19** to **hg38**.
 * **VEP Annotation:** Adds comprehensive functional and clinical annotations.
-* **OncoKB Annotation:** Incorporates therapeutically relevant annotations.
+* **OncoKB Annotation:** Incorporates therapeutically relevant annotations. With the API and the OncoKbannotator
 * **Table Generation:** Converts the final annotated VCF into a readable CSV table.
-* **Summary:** Tracks variant counts at each stage. Usefull while development to see is variants are missed in the previous steps.
+* **Post_analysis:** Merge all tables, organise and improve the final maf file.
+* **Count variants:** Tracks variant counts at each stage. Usefull while development to see is variants are missed in the previous steps.
 
 ## 🛠️ Prerequisites and Dependencies
 
