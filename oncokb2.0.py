@@ -144,6 +144,9 @@ def _extract_one_letter_protein(csq: str):
     if not protein:
         return None
 
+    if ":" in protein:
+        protein = protein.split(":")[-1]
+
     if protein.startswith("p."):
         protein = protein[2:]
 
@@ -262,9 +265,14 @@ def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: st
         "alteration": alteration,
         "tumorType": tumor_type,
     }
+
+    prepared = requests.Request("GET", API_MUT_BY_PROTEIN, params=params).prepare()
+    sys.stdout.write(f"  [OncoKB URL] {prepared.url}\n")
+
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
 
     resp = requests.get(API_MUT_BY_PROTEIN, params=params, headers=headers, timeout=15)
+
     if resp.status_code != 200:
         if resp.status_code != 404:
             sys.stderr.write(
