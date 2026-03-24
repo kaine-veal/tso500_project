@@ -4,6 +4,8 @@ import csv
 import re
 import argparse
 import pandas as pd
+import json
+from pandas import json_normalize
 
 
 # ------------------------------------------------------------
@@ -233,12 +235,9 @@ def final_requiretments(df, output_csv):
     df = df[first_cols + remaining]
 
     # --------------------------------------------------------
-    # Expand ONCOKB_JSON into separate columns and move to end
+    # Expand ONCOKB_JSON into separate columns
     # --------------------------------------------------------
     if "ONCOKB_JSON" in df.columns:
-        import json
-        from pandas import json_normalize
-
         # Parse JSON safely
         parsed = df["ONCOKB_JSON"].apply(
             lambda x: json.loads(x) if isinstance(x, str) and x.strip().startswith("{") else {}
@@ -250,12 +249,87 @@ def final_requiretments(df, output_csv):
         # Prefix to avoid collisions
         expanded.columns = [f"ONCOKB_{c}" for c in expanded.columns]
 
-        # Rebuild dataframe: original columns → expanded JSON → raw JSON at end
+        # Rebuild dataframe: drop raw column, append expanded
         df_no_json = df.drop(columns=["ONCOKB_JSON"])
-        df = pd.concat([df_no_json, expanded, df["ONCOKB_JSON"]], axis=1)
-    print(output_csv)
-    df.to_csv(output_csv, index=False, sep="\t")
+        df = pd.concat([df_no_json, expanded], axis=1)
 
+    # --------------------------------------------------------
+    # Expand ONCOKB_DIAGNOSTIC_IMPLICATIONS into separate columns
+    # --------------------------------------------------------
+    if "ONCOKB_DIAGNOSTIC_IMPLICATIONS" in df.columns:
+        # Parse JSON array safely
+        parsed = df["ONCOKB_DIAGNOSTIC_IMPLICATIONS"].apply(
+            lambda x: json.loads(x) if isinstance(x, str) and x.strip().startswith("[") else []
+        )
+
+        # Find max number of entries across all rows
+        max_entries = parsed.apply(len).max()
+
+        expanded_diag = pd.DataFrame(index=df.index)
+
+        for i in range(max_entries):
+            # Extract the i-th entry from each row (or empty dict if not present)
+            entry_series = parsed.apply(lambda lst: lst[i] if i < len(lst) else {})
+
+            # Flatten nested dicts
+            flat = json_normalize(entry_series.tolist(), sep=".", max_level=None)
+            flat.index = df.index
+            flat.columns = [f"ONCOKB_DIAG_{i}_{c}" for c in flat.columns]
+
+            expanded_diag = pd.concat([expanded_diag, flat], axis=1)
+
+        # Rebuild: drop raw column, append expanded
+        df_no_diag = df.drop(columns=["ONCOKB_DIAGNOSTIC_IMPLICATIONS"])
+        df = pd.concat([df_no_diag, expanded_diag], axis=1)
+
+    # --------------------------------------------------------
+    # Expand ONCOKB_TREATMENTS into separate columns
+    # --------------------------------------------------------
+    if "ONCOKB_TREATMENTS" in df.columns:
+
+        # Parse JSON array safely
+        parsed = df["ONCOKB_TREATMENTS"].apply(
+            lambda x: json.loads(x) if isinstance(x, str) and x.strip().startswith("[") else []
+        )
+
+        # Find max number of entries across all rows
+        max_entries = parsed.apply(len).max()
+
+        expanded_tx = pd.DataFrame(index=df.index)
+
+        for i in range(max_entries):
+            entry_series = parsed.apply(lambda lst: lst[i] if i < len(lst) else {})
+
+            # Flatten drugs array into a single "Drug1 + Drug2" string before normalizing
+            def flatten_drugs(entry):
+                if not entry:
+                    return entry
+                entry = dict(entry)
+                drugs = entry.get("drugs", [])
+                if isinstance(drugs, list):
+                    entry["drugs"] = " + ".join(d.get("drugName", "") for d in drugs)
+                return entry
+
+            entry_series = entry_series.apply(flatten_drugs)
+
+            flat = json_normalize(entry_series.tolist(), sep=".", max_level=None)
+            flat.index = df.index
+            flat.columns = [f"ONCOKB_TX_{i}_{c}" for c in flat.columns]
+
+            # Replace tab and newline characters with _ in all string columns
+            for col in flat.columns:
+                if flat[col].dtype == object:
+                    flat[col] = flat[col].apply(
+                        lambda x: re.sub(r"[\t\n\r]", "_", x) if isinstance(x, str) else x
+                    )
+
+            expanded_tx = pd.concat([expanded_tx, flat], axis=1)
+
+        # Rebuild: drop raw column, append expanded
+        df_no_tx = df.drop(columns=["ONCOKB_TREATMENTS"])
+        df = pd.concat([df_no_tx, expanded_tx], axis=1)
+
+    df.to_csv(output_csv, index=False, sep="\t")
 
 # ------------------------------------------------------------
 # Entry point

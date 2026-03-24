@@ -366,6 +366,7 @@ def merge_maf_files(input_dir, output_file, yaml_config):
 
     print(f"\nWriting master table: {master_file}")
     merged.to_csv(master_file, sep="\t", index=False)
+    
 
     print(f"Writing Tier1 table: {tier1_file}")
     tier1_df.to_csv(tier1_file, sep="\t", index=False)

@@ -587,11 +587,6 @@ fields:
     description: Clinical significance assigned in ClinVar
     source: ClinVar
     version: ClinVar_2024-12
-    
-  CLIN_SIG:
-    description: Clinical significance assigned in ClinVar
-    source: ClinVar
-    version: ClinVar_2024-12
 
   SOMATIC:
     description: Indicates whether the variant has a somatic clinical interpretation
@@ -639,7 +634,7 @@ fields:
     version: ClinVar_2024-12
 
   ClinVar_CLNDNINCL:
-    description: Included disease names in ClinVar annotationNNNNNN
+    description: Included disease names in ClinVar annotation
     source: ClinVar
     version: ClinVar_2024-12
 
@@ -893,11 +888,6 @@ fields:
     source: CIViC
     version: CIViC_v3.6
 
-  CIViC_CSQ_CIViC Variant Aliases:
-    description: Alternative names for the CIViC molecular profile
-    source: CIViC
-    version: CIViC_v3.6
-
   CIViC_CSQ_CIViC Molecular Profile Aliases:
     description: Molecular Profile Aliases
     source: CIViC
@@ -1138,6 +1128,11 @@ fields:
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
 
+  ONCOKB_diagnosticImplications:
+    description: Detailed diagnostic implications reported by OncoKB for the queried variant
+    source: OncoKB
+    version: Version-Refer to the ONCOKB_DATA_VERSION column
+
   ONCOKB_ALLELE_EXIST:
     description: Indicates whether the queried allele exists in the OncoKB knowledgebase. TRUE or FALSE
     source: OncoKB
@@ -1309,11 +1304,6 @@ fields:
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
 
-  ONCOKB_diagnosticImplications:
-    description: Detailed diagnostic implications described by OncoKB
-    source: OncoKB
-    version: Version-Refer to the ONCOKB_DATA_VERSION column
-
   ONCOKB_prognosticImplications:
     description: Detailed prognostic implications described by OncoKB
     source: OncoKB
@@ -1427,296 +1417,297 @@ fields:
   ONCOKB_DATA_VERSION:
     description: Version of the OncoKB dataset used for annotation
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_EFFECT:
     description: Functional effect of the variant according to OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_GENE_EXIST:
     description: Indicates whether the queried gene exists in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_GENE_SUMMARY:
     description: Brief overview of the gene and its role in cancer. Only when parameter -d is specified
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_HOTSPOT:
     description: Indicates whether the variant is considered a hotspot by OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_LAST_UPDATE:
     description: Date of the most recent update to the OncoKB record
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_ONCOGENIC:
     description: Oncogenic classification assigned by OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_QUERY_TYPE:
     description: Query type used for the OncoKB annotation request
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_TUMOR_TYPE_SUMMARY:
     description: Tumor type summary describes the therapeutic implication that applies to the indication. Only when parameter -d is specified
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_VARIANT_EXIST:
     description: Indicates whether the queried variant exists in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_VARIANT_SUMMARY:
     description: Variant summary describes the variant oncogenicity, last review if it is VUS. Only when parameter -d is specified
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_treatments:
     description: Treatment implications and associated therapies from OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_TREATMENTS:
     description: Treatment implications and associated therapies from OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_JSON:
     description: Raw JSON response returned by OncoKB for the queried variant
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.id:
     description: Internal identifier used in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.referenceGenome:
     description: Reference genome used in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.hugoSymbol:
     description: HGNC gene symbol submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.entrezGeneId:
     description: Entrez gene identifier submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.alteration:
     description: Alteration string submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.alterationType:
     description: Alteration type submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.svType:
     description: Structural variant type submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.tumorType:
     description: Tumour type submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.consequence:
     description: Functional consequence submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.proteinStart:
     description: Protein start position submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.proteinEnd:
     description: Protein end position submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.hgvs:
     description: HGVS expression submitted in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.hgvsInfo:
     description: Parsed HGVS information used in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_query.canonicalTranscript:
     description: Canonical transcript used in the OncoKB query
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_mutationEffect.knownEffect:
     description: Known mutation effect classification reported by OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_mutationEffect.description:
     description: Description of the mutation effect reported by OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_mutationEffect.citations.pmids:
     description: PubMed identifiers supporting the mutation effect in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOKB_mutationEffect.citations.abstracts:
     description: Abstract-based citations supporting the mutation effect in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ANNOTATED:
     description: Whether the variant is annotated by OncoKB successfully. TRUE, FALSE
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   GENE_IN_ONCOKB:
     description: Whether the gene has been curated by the OncoKB Team. TRUE, FALSE
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   VARIANT_IN_ONCOKB:
     description: Whether the variant has been curated by the OncoKB Team. Note when a variant does not exist, it may still have annotations. True, False
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   MUTATION_EFFECT:
     description: The biological effect of a mutation/alteration on the protein function that gives rise to changes in the biological properties of cells expressing the mutant/altered protein compared to cells expressing the wildtype protein. Gain-of-function, Likely Gain-of-function, Loss-of-function, Likely Loss-of-function, Switch-of-function, Likely Switch-of-function, Neutral, Likely Neutral, Inconclusive, Unknown
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   MUTATION_EFFECT_CITATIONS:
     description: All citations related to the biological effect. PMID, Abstract, Website link
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   ONCOGENIC:
     description: In OncoKB, “oncogenic” is defined as “referring to the ability to induce or cause cancer” as described in the second edition of The Biology of Cancer by Robert Weinberg (2014). Oncogenic, Likely Oncogenic, Likely Neutral, Inconclusive, Unknown, Resistance
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_1:
     description: The leveled therapeutic implications.
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_2:
     description: Presence of Level 2 therapeutic evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_3A:
     description: Presence of Level 3A therapeutic evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_3B:
     description: Presence of Level 3B therapeutic evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_4:
     description: Presence of Level 4 therapeutic evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_R1:
     description: Presence of Level R1 resistance evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_R2:
     description: Presence of Level R2 resistance evidence in OncoKB
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   HIGHEST_LEVEL:
     description: The highest level of evidence for therapeutic implications. Order LEVEL_R1 > LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4 > LEVEL_R2
-    version: OncoKB_v4
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   HIGHEST_SENSITIVE_LEVEL:
     description: The highest sensitive level of evidence for therapeutic implications. Order LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   HIGHEST_RESISTANCE_LEVEL:
     description: The highest resistance level of evidence for therapeutic implications. Order LEVEL_R1 > LEVEL_R2
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   TX_CITATIONS:
     description: All citations related to therapeutic implications. PMID, Abstract, Website link
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Dx1:
     description: The leveled diagnostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Dx2:
     description: The leveled diagnostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Dx3:
     description: The leveled diagnostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   HIGHEST_DX_LEVEL:
     description: The highest level of evidence for diagnostic implications. LEVEL_Dx1, LEVEL_Dx2, LEVEL_Dx3
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   DX_CITATIONS:
     description: All citations related to diagnostic implications. PMID, Abstract, Website link
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Px1:
     description: The leveled prognostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Px2:
     description: The leveled prognostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   LEVEL_Px3:
     description: The leveled prognostic implications. Tumor type the level of evidence is assigned to
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   HIGHEST_PX_LEVEL:
     description: The highest level of evidence for prognostic implications. LEVEL_Px1, LEVEL_Px2, LEVEL_Px3
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   PX_CITATIONS:
     description: All citations related to prognostic implications. PMID, Abstract, Website link
     source: OncoKB
-    version: OncoKB_v4
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
 
   FORMAT:
     description: FORMAT column describing the genotype fields available for each sample
@@ -1798,7 +1789,164 @@ fields:
     source: VCF
     version: VCF_v4.2
 
-  VAF:
-    description: Variant allele frequency calculated from read counts.
-    source: VCF
-    version: VCF_v4.2
+field_patterns:
+
+  - pattern: "ONCOKB_DIAG_*_levelOfEvidence"
+    description: "OncoKB diagnostic implication level of evidence"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_alterations"
+    description: "OncoKB diagnostic implication associated alterations"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_pmids"
+    description: "OncoKB diagnostic implication supporting PubMed IDs"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_abstracts"
+    description: "OncoKB diagnostic implication supporting abstracts"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_description"
+    description: "OncoKB diagnostic implication evidence description"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.id"
+    description: "OncoKB diagnostic implication tumor type ID"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.code"
+    description: "OncoKB diagnostic implication tumor type code"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.color"
+    description: "OncoKB diagnostic implication tumor type color"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.name"
+    description: "OncoKB diagnostic implication tumor type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.mainType.id"
+    description: "OncoKB diagnostic implication main tumor type ID"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.mainType.name"
+    description: "OncoKB diagnostic implication main tumor type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.mainType.tumorForm"
+    description: "OncoKB diagnostic implication main tumor type form"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.tissue"
+    description: "OncoKB diagnostic implication tumor tissue"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.parent"
+    description: "OncoKB diagnostic implication tumor type parent"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.level"
+    description: "OncoKB diagnostic implication tumor type level"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_DIAG_*_tumorType.tumorForm"
+    description: "OncoKB diagnostic implication tumor form"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_level"
+    description: "OncoKB treatment implication level of evidence"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_fdaLevel"
+    description: "OncoKB treatment implication FDA level"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_drugs"
+    description: "OncoKB treatment drugs (combined as Drug1 + Drug2)"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_alterations"
+    description: "OncoKB treatment implication associated alterations"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_approvedIndications"
+    description: "OncoKB treatment approved indications"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_pmids"
+    description: "OncoKB treatment implication supporting PubMed IDs"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_abstracts"
+    description: "OncoKB treatment implication supporting abstracts"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_description"
+    description: "OncoKB treatment implication evidence description"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.id"
+    description: "OncoKB treatment associated cancer type ID"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.code"
+    description: "OncoKB treatment associated cancer type code"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.name"
+    description: "OncoKB treatment associated cancer type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.mainType.name"
+    description: "OncoKB treatment associated main cancer type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.mainType.tumorForm"
+    description: "OncoKB treatment associated main cancer tumor form"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.tissue"
+    description: "OncoKB treatment associated cancer tissue"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelExcludedCancerTypes"
+    description: "OncoKB treatment excluded cancer types"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+  
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.mainType.name"
+    description: "OncoKB treatment associated main cancer type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"

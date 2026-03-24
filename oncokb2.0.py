@@ -144,14 +144,17 @@ def _extract_one_letter_protein(csq: str):
     if not protein:
         return None
 
+    sys.stdout.write(f"  [DEBUG protein raw] {protein}\n")
+
     if ":" in protein:
-        protein = protein.split(":")[-1]
+        protein = protein.split(":")[-1] 
 
     if protein.startswith("p."):
         protein = protein[2:]
 
     protein = protein.replace("Ter", "*")
 
+    sys.stdout.write(f"  [DEBUG protein final] {protein}\n")
     aa3to1 = {
         "Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D",
         "Cys": "C", "Gln": "Q", "Glu": "E", "Gly": "G",
@@ -263,8 +266,10 @@ def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: st
         "referenceGenome": REFERENCE_GENOME,
         "hugoSymbol": gene,
         "alteration": alteration,
-        "tumorType": tumor_type,
     }
+
+    if tumor_type and tumor_type.upper() != "UNKNOWN":
+        params["tumorType"] = tumor_type
 
     prepared = requests.Request("GET", API_MUT_BY_PROTEIN, params=params).prepare()
     sys.stdout.write(f"  [OncoKB URL] {prepared.url}\n")
@@ -272,7 +277,6 @@ def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: st
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
 
     resp = requests.get(API_MUT_BY_PROTEIN, params=params, headers=headers, timeout=15)
-
     if resp.status_code != 200:
         if resp.status_code != 404:
             sys.stderr.write(
