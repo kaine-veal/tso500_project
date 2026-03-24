@@ -13,19 +13,43 @@ set -euo pipefail
 #   - Creates indexes where needed
 #   - Creates a pipeline_config.sh file in the current directory
 #   - Records paths and resource versions where possible
+#   - Verifies checksums where available
+#   - Checks disk space before starting
 #
 # Notes:
-#   - Some resources (Google Drive / BaseSpace) may require manual validation
-#   - This script assumes wget, git, gunzip, zgrep, realpath, apptainer are available
-#   - tabix is run on the host system in this version
+#   - SpliceAI requires an Illumina BaseSpace account; files must be manually
+#     staged to $SPLICEAI_STAGING_DIR before running this script
+#   - This script assumes wget, git, gunzip, zgrep, realpath, apptainer,
+#     and tabix are available on the host
 #
+# ==============================================================================
+
+# ==============================================================================
+# CONFIGURATION — edit these variables to match your environment
+# ==============================================================================
+
+# Base install directory (defaults to the running user's home directory)
+BASE_DIR="${HOME}"
+
+# Where reference files will be stored
+REF_ROOT="${BASE_DIR}/ref_files"
+
+# SpliceAI files must be manually downloaded from BaseSpace and placed here
+# before running this script (BaseSpace requires an Illumina login)
+SPLICEAI_STAGING_DIR="${BASE_DIR}/spliceai_staging"
+
+# Minimum free disk space required to proceed (in GB)
+MIN_DISK_GB=200
+
 # ==============================================================================
 
 echo "================================================================================"
 echo " Clinical Genomics Pipeline – Reference Data Installer"
 echo ""
-echo "This script downloads and prepares all reference datasets required to run"
-echo "the variant annotation pipeline."
+echo " Running as user : $(whoami)"
+echo " Home directory  : ${HOME}"
+echo " Install root    : ${REF_ROOT}"
+echo " SpliceAI source : ${SPLICEAI_STAGING_DIR}"
 echo ""
 echo "Resources installed include:"
 echo "  • Human reference genome (GRCh38)"
@@ -38,38 +62,68 @@ echo "The installer is idempotent:"
 echo "  • Existing files are detected and skipped"
 echo "  • Only missing resources are downloaded"
 echo "  • The script can safely be re-run if interrupted"
-echo ""
-echo "All resources will be installed in the directory:"
-echo "  ref_files/"
 echo "================================================================================"
 
-REF_ROOT="ref_files"
-mkdir -p "$REF_ROOT"
+# -------------------------
+# Preflight checks
+# -------------------------
+
+echo ""
+echo "[PREFLIGHT] Checking available disk space on ${BASE_DIR}..."
+AVAIL_GB=$(df -BG "${BASE_DIR}" | awk 'NR==2 {gsub("G",""); print $4}')
+echo "[PREFLIGHT] Available: ${AVAIL_GB} GB  |  Required: ${MIN_DISK_GB} GB"
+
+if (( AVAIL_GB < MIN_DISK_GB )); then
+  echo "[ERROR] Insufficient disk space."
+  echo "        Available : ${AVAIL_GB} GB"
+  echo "        Required  : ${MIN_DISK_GB} GB"
+  echo "        Free up space under ${BASE_DIR} and re-run."
+  exit 1
+fi
+
+echo "[PREFLIGHT] Disk space OK."
+
+# -------------------------
+# Container wrappers
+# -------------------------
+echo ""
+echo "[INIT] Setting container wrappers"
+
+# In the Uni Server we have 
+module load apptainer
 
 # -------------------------
 # Container wrappers
 # -------------------------
 echo "[INIT] Setting container wrappers"
 
-SAMTOOLS="apptainer exec \
-    --bind /mnt/data1:/mnt/data1 \
-    --bind /mnt/scratch1:/mnt/scratch1 \
-    --bind $(pwd):$(pwd) \
-    docker://quay.io/biocontainers/samtools:1.20--h50ea8bc_0 samtools"
+SAMTOOLS_IMG="docker://quay.io/biocontainers/samtools:1.20--h50ea8bc_0"
 
-GATK="apptainer exec \
-    --bind /mnt:/mnt \
+SAMTOOLS="apptainer exec --fakeroot \
+    --bind ${BASE_DIR}:${BASE_DIR} \
+    --bind $(pwd):$(pwd) \
+    ${SAMTOOLS_IMG} samtools"
+
+TABIX="apptainer exec --fakeroot \
+    --bind ${BASE_DIR}:${BASE_DIR} \
+    --bind $(pwd):$(pwd) \
+    ${SAMTOOLS_IMG} tabix"
+
+GATK="apptainer exec --fakeroot \
+    --bind ${BASE_DIR}:${BASE_DIR} \
     --bind $(pwd):$(pwd) \
     docker://broadinstitute/gatk:4.1.3.0"
 
-VEP="apptainer exec \
-    --bind /mnt:/mnt \
+VEP="apptainer exec --fakeroot \
+    --bind ${BASE_DIR}:${BASE_DIR} \
     --bind $(pwd):$(pwd) \
     docker://ensemblorg/ensembl-vep"
+
 
 # -------------------------
 # Helper functions
 # -------------------------
+
 log_step () {
   echo ""
   echo "================================================================================"
@@ -78,23 +132,54 @@ log_step () {
 }
 
 download_if_missing () {
-  # $1 = URL, $2 = OUTPUT FILE
+  # Usage: download_if_missing <URL> <OUTPUT_FILE> [EXPECTED_SHA256]
   local url="$1"
   local out="$2"
+  local expected_sha="${3:-}"
 
   if [[ -f "$out" ]]; then
     echo "[SKIP] Already exists: $out"
+    # Still verify checksum if one was provided
+    if [[ -n "$expected_sha" ]]; then
+      local actual_sha
+      actual_sha=$(sha256sum "$out" | awk '{print $1}')
+      if [[ "$actual_sha" != "$expected_sha" ]]; then
+        echo "[ERROR] Checksum mismatch for existing file: $out"
+        echo "        Expected : $expected_sha"
+        echo "        Got      : $actual_sha"
+        exit 1
+      fi
+      echo "[OK] Checksum verified: $out"
+    fi
     return 0
   fi
 
   echo "[DL] $url"
   echo "     -> $out"
 
-  if ! wget -O "$out" "$url"; then
+  local tmp_out="${out}.tmp"
+
+  if ! wget --show-progress -O "$tmp_out" "$url"; then
     echo "[ERROR] Download failed: $url"
-    rm -f "$out"
+    rm -f "$tmp_out"
     exit 1
   fi
+
+  # Verify checksum before moving into place
+  if [[ -n "$expected_sha" ]]; then
+    local actual_sha
+    actual_sha=$(sha256sum "$tmp_out" | awk '{print $1}')
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+      echo "[ERROR] Checksum mismatch after download: $url"
+      echo "        Expected : $expected_sha"
+      echo "        Got      : $actual_sha"
+      rm -f "$tmp_out"
+      exit 1
+    fi
+    echo "[OK] Checksum verified."
+  fi
+
+  mv "$tmp_out" "$out"
 }
 
 mkdir_if_missing () {
@@ -112,10 +197,10 @@ mkdir_if_missing () {
 # -------------------------
 log_step "[STEP 1] Liftover chain (hg19 → hg38)"
 
-mkdir_if_missing "$REF_ROOT/liftover"
+mkdir_if_missing "${REF_ROOT}/liftover"
 
-CHAIN_GZ="$REF_ROOT/liftover/hg19ToHg38.over.chain.gz"
-CHAIN="$REF_ROOT/liftover/hg19ToHg38.over.chain"
+CHAIN_GZ="${REF_ROOT}/liftover/hg19ToHg38.over.chain.gz"
+CHAIN="${REF_ROOT}/liftover/hg19ToHg38.over.chain"
 
 if [[ -f "$CHAIN" ]]; then
   echo "[SKIP] Liftover chain already exists: $CHAIN"
@@ -126,6 +211,7 @@ else
 
   echo "[RUN] Decompressing chain file -> $CHAIN"
   gunzip -c "$CHAIN_GZ" > "$CHAIN"
+  echo "[OK] Chain file ready: $CHAIN"
 fi
 
 # -------------------------
@@ -133,12 +219,12 @@ fi
 # -------------------------
 log_step "[STEP 2] GRCh38 reference genome (hg38.fa + .fai + .dict)"
 
-mkdir_if_missing "$REF_ROOT/reference"
+mkdir_if_missing "${REF_ROOT}/reference"
 
-REF_FA_GZ="$REF_ROOT/reference/hg38.fa.gz"
-REF_FA="$REF_ROOT/reference/hg38.fa"
-REF_FAI="$REF_ROOT/reference/hg38.fa.fai"
-REF_DICT="$REF_ROOT/reference/hg38.dict"
+REF_FA_GZ="${REF_ROOT}/reference/hg38.fa.gz"
+REF_FA="${REF_ROOT}/reference/hg38.fa"
+REF_FAI="${REF_ROOT}/reference/hg38.fa.fai"
+REF_DICT="${REF_ROOT}/reference/hg38.dict"
 
 if [[ -f "$REF_FA" ]]; then
   echo "[SKIP] Reference FASTA already exists: $REF_FA"
@@ -148,7 +234,9 @@ else
     "$REF_FA_GZ"
 
   echo "[RUN] Decompressing reference FASTA -> $REF_FA"
-  gunzip -f "$REF_FA_GZ"
+  # Use -c (stdout) to preserve the .gz file, protecting against interruption
+  gunzip -c "$REF_FA_GZ" > "$REF_FA"
+  echo "[OK] Reference FASTA ready: $REF_FA"
 fi
 
 if [[ -f "$REF_FAI" ]]; then
@@ -156,6 +244,7 @@ if [[ -f "$REF_FAI" ]]; then
 else
   echo "[RUN] Creating FASTA index (.fai) with samtools"
   $SAMTOOLS faidx "$REF_FA"
+  echo "[OK] FASTA index created: $REF_FAI"
 fi
 
 if [[ -f "$REF_DICT" ]]; then
@@ -165,6 +254,7 @@ else
   $GATK /gatk/gatk CreateSequenceDictionary \
       -R "$REF_FA" \
       -O "$REF_DICT"
+  echo "[OK] Sequence dictionary created: $REF_DICT"
 fi
 
 # -------------------------
@@ -172,9 +262,9 @@ fi
 # -------------------------
 log_step "[STEP 3] ClinVar (GRCh38 VCF + tabix index)"
 
-mkdir_if_missing "$REF_ROOT/ClinVar"
-CLINVAR_VCF="$REF_ROOT/ClinVar/clinvar.vcf.gz"
-CLINVAR_TBI="$REF_ROOT/ClinVar/clinvar.vcf.gz.tbi"
+mkdir_if_missing "${REF_ROOT}/ClinVar"
+CLINVAR_VCF="${REF_ROOT}/ClinVar/clinvar.vcf.gz"
+CLINVAR_TBI="${REF_ROOT}/ClinVar/clinvar.vcf.gz.tbi"
 
 download_if_missing \
   "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz" \
@@ -184,7 +274,8 @@ if [[ -f "$CLINVAR_TBI" ]]; then
   echo "[SKIP] ClinVar tabix index already exists: $CLINVAR_TBI"
 else
   echo "[RUN] Indexing ClinVar with tabix"
-  tabix -p vcf "$CLINVAR_VCF"
+  $TABIX -p vcf "$CLINVAR_VCF"
+  echo "[OK] ClinVar indexed: $CLINVAR_TBI"
 fi
 
 # -------------------------
@@ -192,20 +283,23 @@ fi
 # -------------------------
 log_step "[STEP 4] CIViC (nightly download)"
 
-mkdir_if_missing "$REF_ROOT/CIVIC"
-CIVIC_FILE="$REF_ROOT/CIVIC/nightly-VariantSummaries.tsv"
+mkdir_if_missing "${REF_ROOT}/CIVIC"
+CIVIC_FILE="${REF_ROOT}/CIVIC/nightly-VariantSummaries.tsv"
 
 download_if_missing \
   "https://civicdb.org/downloads/nightly/nightly-VariantSummaries.tsv" \
   "$CIVIC_FILE"
+
+# Capture version from download date since CIViC nightly has no embedded version
+CIVIC_DOWNLOAD_DATE="$(date +%Y-%m-%d)"
 
 # -------------------------
 # STEP 5: REVEL
 # -------------------------
 log_step "[STEP 5] REVEL (zip download)"
 
-mkdir_if_missing "$REF_ROOT/REVEL"
-REVEL_ZIP="$REF_ROOT/REVEL/revel_all_chromosomes.zip"
+mkdir_if_missing "${REF_ROOT}/REVEL"
+REVEL_ZIP="${REF_ROOT}/REVEL/revel_all_chromosomes.zip"
 
 download_if_missing \
   "https://rothsj06.dmz.hpc.mssm.edu/revel-v1.3_all_chromosomes.zip" \
@@ -216,27 +310,77 @@ download_if_missing \
 # -------------------------
 log_step "[STEP 6] SpliceAI (SNV + INDEL VCFs)"
 
-mkdir_if_missing "$REF_ROOT/SpliceAI"
+# SpliceAI is gated behind an Illumina BaseSpace login and cannot be
+# downloaded automatically. Files must be manually downloaded and placed
+# in SPLICEAI_STAGING_DIR before running this script.
+#
+# Expected files:
+#   spliceai_scores.raw.snv.hg38.vcf.gz
+#   spliceai_scores.raw.indel.hg38.vcf.gz
 
-SPLICEAI_SNV="$REF_ROOT/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz"
-SPLICEAI_INDEL="$REF_ROOT/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz"
+mkdir_if_missing "${REF_ROOT}/SpliceAI"
 
-download_if_missing "https://basespace.illumina.com/s/otSPW8hnhaZR" "$SPLICEAI_SNV"
-download_if_missing "https://basespace.illumina.com/s/jI4aHqRKoGqE" "$SPLICEAI_INDEL"
+SPLICEAI_SNV="${REF_ROOT}/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz"
+SPLICEAI_INDEL="${REF_ROOT}/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz"
 
-log_step "WARNING: This will FAIL if you dont have an Illumina account. This is not available outside https://basespace.illumina.com/"
+SPLICEAI_SNV_SRC="${SPLICEAI_STAGING_DIR}/spliceai_scores.raw.snv.hg38.vcf.gz"
+SPLICEAI_INDEL_SRC="${SPLICEAI_STAGING_DIR}/spliceai_scores.raw.indel.hg38.vcf.gz"
 
-cp /mnt/data1/vep_test/SpliceAI/* "$REF_ROOT/SpliceAI"
+SPLICEAI_MISSING=0
+
+for src_file in "$SPLICEAI_SNV_SRC" "$SPLICEAI_INDEL_SRC"; do
+  if [[ ! -f "$src_file" ]]; then
+    echo "[WARN] SpliceAI staging file not found: $src_file"
+    SPLICEAI_MISSING=1
+  fi
+done
+
+if (( SPLICEAI_MISSING == 1 )); then
+  echo ""
+  echo "[WARN] =================================================================="
+  echo "[WARN] SpliceAI files are missing from the staging directory:"
+  echo "[WARN]   ${SPLICEAI_STAGING_DIR}"
+  echo "[WARN]"
+  echo "[WARN] SpliceAI requires a free Illumina BaseSpace account."
+  echo "[WARN] Download both files manually from:"
+  echo "[WARN]   SNV   : https://basespace.illumina.com/s/otSPW8hnhaZR"
+  echo "[WARN]   INDEL : https://basespace.illumina.com/s/jI4aHqRKoGqE"
+  echo "[WARN]"
+  echo "[WARN] Then place them in: ${SPLICEAI_STAGING_DIR}"
+  echo "[WARN] and re-run this script."
+  echo "[WARN] =================================================================="
+else
+  declare -A SPLICEAI_FILES=(
+    ["$SPLICEAI_SNV_SRC"]="$SPLICEAI_SNV"
+    ["$SPLICEAI_INDEL_SRC"]="$SPLICEAI_INDEL"
+  )
+
+  for src in "${!SPLICEAI_FILES[@]}"; do
+    dest="${SPLICEAI_FILES[$src]}"
+    if [[ -f "$dest" ]]; then
+      echo "[SKIP] Already exists: $dest"
+    else
+      echo "[CP] $src -> $dest"
+      cp "$src" "$dest"
+      echo "[OK] Copied: $dest"
+    fi
+  done
+fi
 
 # -------------------------
 # STEP 7: gnomAD constraints (LOEUF)
 # -------------------------
 log_step "[STEP 7] gnomAD constraint metrics (LOEUF)"
 
-mkdir_if_missing "$REF_ROOT/gnomAD_constraints"
+mkdir_if_missing "${REF_ROOT}/gnomAD_constraints"
 
-LOEUF_GRCH38="$REF_ROOT/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz"
-LOEUF_GRCH38_TBI="$REF_ROOT/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz.tbi"
+LOEUF_GRCH38="${REF_ROOT}/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz"
+LOEUF_GRCH38_TBI="${REF_ROOT}/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz.tbi"
+
+echo "[INFO] Downloading gnomAD LOEUF from Google Drive."
+echo "       NOTE: Google Drive may silently return an HTML error page instead"
+echo "             of the file if the link has expired or the quota is exceeded."
+echo "             Verify the downloaded file is not an HTML page if indexing fails."
 
 download_if_missing \
   "https://drive.google.com/uc?export=download&id=1pJMBwZQQLB2K4DelrWCEILzSadmLVybq" \
@@ -246,22 +390,37 @@ download_if_missing \
   "https://drive.google.com/uc?export=download&id=1ZFg9d2VW_PC3VcsaSS84LaKeudw41PT8" \
   "$LOEUF_GRCH38_TBI"
 
+# Sanity-check: the file should be binary (gzip), not HTML
+if file "$LOEUF_GRCH38" | grep -q "HTML"; then
+  echo "[ERROR] LOEUF download appears to be an HTML page, not a gzip file."
+  echo "        The Google Drive link may have expired or hit a download quota."
+  echo "        Remove ${LOEUF_GRCH38} and obtain the file manually, then re-run."
+  rm -f "$LOEUF_GRCH38"
+  exit 1
+fi
+
 # -------------------------
 # STEP 8: VEP cache
 # -------------------------
 log_step "[STEP 8] VEP cache (homo_sapiens, GRCh38)"
 
-VEP_CACHE_DIR="$REF_ROOT/homo_sapiens"
+VEP_CACHE_DIR="${REF_ROOT}/homo_sapiens"
 
-if [[ -d "$VEP_CACHE_DIR" ]] && [[ "$(ls -A "$VEP_CACHE_DIR" 2>/dev/null || true)" != "" ]]; then
+if [[ -d "$VEP_CACHE_DIR" ]] && [[ -n "$(ls -A "$VEP_CACHE_DIR" 2>/dev/null)" ]]; then
   echo "[SKIP] VEP cache directory already present and non-empty: $VEP_CACHE_DIR"
 else
-  echo "[RUN] Installing VEP cache into: $REF_ROOT"
-  $VEP /root/miniconda3/pkgs/ensembl-vep-88.9-0/bin/vep_install \
+  echo "[RUN] Installing VEP cache into: ${REF_ROOT}"
+  echo "      (this may take a long time — cache is ~15 GB)"
+  # Use the vep_install script available in the container's PATH rather
+  # than a hardcoded miniconda path, which is version- and system-specific
+  $VEP perl /opt/vep/src/ensembl-vep/INSTALL.pl \
     -a cf \
     -s homo_sapiens \
     -y GRCh38 \
-    -c "$REF_ROOT"
+    -c "${REF_ROOT}" \
+    --NO_HTSLIB \
+    --NO_TEST
+echo "[OK] VEP cache installed: $VEP_CACHE_DIR"
 fi
 
 # -------------------------
@@ -269,39 +428,33 @@ fi
 # -------------------------
 log_step "[STEP 9] VEP Plugins"
 
-PLUGINS_DIR="$REF_ROOT/Plugins"
-if [[ -d "$PLUGINS_DIR/.git" ]]; then
+PLUGINS_DIR="${REF_ROOT}/Plugins"
+
+if [[ -d "${PLUGINS_DIR}/.git" ]]; then
   echo "[SKIP] VEP plugins repo already cloned: $PLUGINS_DIR"
 else
   if [[ -d "$PLUGINS_DIR" ]]; then
-    echo "[WARN] $PLUGINS_DIR exists but is not a git repo. Skipping clone to avoid overwriting."
-    echo "       If you want to re-clone, remove the directory and rerun."
+    echo "[WARN] $PLUGINS_DIR exists but is not a git repo."
+    echo "       Remove the directory manually if you want to re-clone, then re-run."
   else
     echo "[RUN] Cloning Ensembl VEP plugins repository..."
     git clone https://github.com/Ensembl/VEP_plugins.git "$PLUGINS_DIR"
+    echo "[OK] VEP plugins cloned: $PLUGINS_DIR"
   fi
 fi
 
 # -------------------------
 # STEP 10: Cancer Hotspots
 # -------------------------
-log_step "[STEP 10] Download Cancer Hotspots (hg38)"
+log_step "[STEP 10] Cancer Hotspots (hg38)"
 
-mkdir_if_missing "$REF_ROOT/CancerHotSpots"
+mkdir_if_missing "${REF_ROOT}/CancerHotSpots"
 
-HOTSPOT_VCF="$REF_ROOT/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
+HOTSPOT_VCF="${REF_ROOT}/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
 
-if [[ -f "$HOTSPOT_VCF" ]]; then
-  echo "[SKIP] Cancer Hotspots VCF already exists: $HOTSPOT_VCF"
-else
-  echo "[DL] Downloading Cancer Hotspots dataset..."
-  if ! wget -O "$HOTSPOT_VCF" \
-    "https://raw.githubusercontent.com/charlottekyng/cancer_hotspots/master/resources/hg38.hotspots_changv2_gao_nc.vcf.gz"; then
-    echo "[ERROR] Download failed: Cancer Hotspots"
-    rm -f "$HOTSPOT_VCF"
-    exit 1
-  fi
-fi
+download_if_missing \
+  "https://raw.githubusercontent.com/charlottekyng/cancer_hotspots/master/resources/hg38.hotspots_changv2_gao_nc.vcf.gz" \
+  "$HOTSPOT_VCF"
 
 # -------------------------
 # STEP 11: Write config file
@@ -314,17 +467,17 @@ CONFIG_FILE="pipeline_config.sh"
 INSTALL_DATE="$(date +%Y-%m-%d)"
 REFERENCE_VERSION="UCSC_hg38"
 CHAIN_VERSION="UCSC_hg19ToHg38"
-CIVIC_VERSION="civic_01_10_25"
+CIVIC_VERSION="civic_nightly_${CIVIC_DOWNLOAD_DATE}"
 REVEL_VERSION="v1.3"
-SPLICEAI_VERSION="SpliceAIv1.3" 
+SPLICEAI_VERSION="SpliceAIv1.3"
 LOEUF_VERSION="custom_grch38"
-CANCER_HOTSPOTS_VERSION="charlottekyng/cancer_hotspots master"
+CANCER_HOTSPOTS_VERSION="charlottekyng/cancer_hotspots_master"
 VEP_CACHE_VERSION="GRCh38"
-VEP_PLUGINS_VERSION="git clone"
+VEP_PLUGINS_VERSION="git_clone_$(date +%Y-%m-%d)"
 
 CLINVAR_VERSION="$(zgrep -m1 '^##fileDate=' "$CLINVAR_VCF" 2>/dev/null | cut -d= -f2 || true)"
 if [[ -z "$CLINVAR_VERSION" ]]; then
-  CLINVAR_VERSION="unknown"
+  CLINVAR_VERSION="unknown_check_${INSTALL_DATE}"
 fi
 
 cat > "$CONFIG_FILE" <<EOF
@@ -332,56 +485,60 @@ cat > "$CONFIG_FILE" <<EOF
 # Clinical Genomics Pipeline configuration
 # Generated automatically by install_references.sh
 # --------------------------------------------------
+#
+# Installed by : $(whoami)
+# Install date : ${INSTALL_DATE}
+# Install host : $(hostname)
+# --------------------------------------------------
 
-INSTALL_DATE="$INSTALL_DATE"
+INSTALL_DATE="${INSTALL_DATE}"
 REF_ROOT="$(realpath "$REF_ROOT")"
 
-REF_GENOME="\$REF_ROOT/reference/hg38.fa"
-REF_GENOME_VERSION="$REFERENCE_VERSION"
+REF_GENOME="\${REF_ROOT}/reference/hg38.fa"
+REF_GENOME_VERSION="${REFERENCE_VERSION}"
 
-CHAIN_FILE="\$REF_ROOT/liftover/hg19ToHg38.over.chain"
-CHAIN_FILE_VERSION="$CHAIN_VERSION"
+CHAIN_FILE="\${REF_ROOT}/liftover/hg19ToHg38.over.chain"
+CHAIN_FILE_VERSION="${CHAIN_VERSION}"
 
-CLINVAR_VCF="\$REF_ROOT/ClinVar/clinvar.vcf.gz"
-CLINVAR_VERSION="$CLINVAR_VERSION"
+CLINVAR_VCF="\${REF_ROOT}/ClinVar/clinvar.vcf.gz"
+CLINVAR_VERSION="${CLINVAR_VERSION}"
 
-CIVIC_FILE="\$REF_ROOT/CIVIC/nightly-VariantSummaries.tsv"
-CIVIC_VERSION="$CIVIC_VERSION"
+CIVIC_FILE="\${REF_ROOT}/CIVIC/nightly-VariantSummaries.tsv"
+CIVIC_VERSION="${CIVIC_VERSION}"
 
-REVEL_FILE="\$REF_ROOT/REVEL/revel_all_chromosomes.zip"
-REVEL_VERSION="$REVEL_VERSION"
+REVEL_FILE="\${REF_ROOT}/REVEL/revel_all_chromosomes.zip"
+REVEL_VERSION="${REVEL_VERSION}"
 
-SPLICEAI_SNV="\$REF_ROOT/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz"
-SPLICEAI_INDEL="\$REF_ROOT/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz"
-SPLICEAI_VERSION="$SPLICEAI_VERSION"
+SPLICEAI_SNV="\${REF_ROOT}/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz"
+SPLICEAI_INDEL="\${REF_ROOT}/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz"
+SPLICEAI_VERSION="${SPLICEAI_VERSION}"
 
-LOEUF_FILE="\$REF_ROOT/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz"
-LOEUF_FILE_INDEX="\$REF_ROOT/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz.tbi"
-LOEUF_VERSION="$LOEUF_VERSION"
+LOEUF_FILE="\${REF_ROOT}/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz"
+LOEUF_FILE_INDEX="\${REF_ROOT}/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz.tbi"
+LOEUF_VERSION="${LOEUF_VERSION}"
 
-VEP_CACHE_DIR="\$REF_ROOT/homo_sapiens"
-VEP_CACHE_VERSION="$VEP_CACHE_VERSION"
+VEP_CACHE_DIR="\${REF_ROOT}/homo_sapiens"
+VEP_CACHE_VERSION="${VEP_CACHE_VERSION}"
 
-VEP_PLUGINS_DIR="\$REF_ROOT/Plugins"
-VEP_PLUGINS_VERSION="$VEP_PLUGINS_VERSION"
+VEP_PLUGINS_DIR="\${REF_ROOT}/Plugins"
+VEP_PLUGINS_VERSION="${VEP_PLUGINS_VERSION}"
 
-CANCER_HOTSPOTS_VCF="\$REF_ROOT/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
-CANCER_HOTSPOTS_VERSION="$CANCER_HOTSPOTS_VERSION"
+CANCER_HOTSPOTS_VCF="\${REF_ROOT}/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
+CANCER_HOTSPOTS_VERSION="${CANCER_HOTSPOTS_VERSION}"
 EOF
 
 echo "[OK] Configuration file created: $CONFIG_FILE"
 
+# -------------------------
+# Summary
+# -------------------------
 echo ""
 echo "================================================================================"
 echo " DONE"
 echo "================================================================================"
-echo "Resources installed under: $(realpath "$REF_ROOT")"
-echo "Configuration file written to: $(realpath "$CONFIG_FILE")"
-echo "If something failed, rerun this script—completed steps will be skipped."
-
-
-
-
-
-
-
+echo " Installed by   : $(whoami)"
+echo " Install root   : $(realpath "$REF_ROOT")"
+echo " Config file    : $(realpath "$CONFIG_FILE")"
+echo ""
+echo " If a step failed, re-run this script — completed steps will be skipped."
+echo "================================================================================"
