@@ -221,10 +221,10 @@ log_step "[STEP 2] GRCh38 reference genome (hg38.fa + .fai + .dict)"
 
 mkdir_if_missing "${REF_ROOT}/reference"
 
-REF_FA_GZ="${REF_ROOT}/reference/hg38.fa.gz"
-REF_FA="${REF_ROOT}/reference/hg38.fa"
-REF_FAI="${REF_ROOT}/reference/hg38.fa.fai"
-REF_DICT="${REF_ROOT}/reference/hg38.dict"
+REF_FA_GZ="${REF_ROOT}/liftover/hg38.fa.gz"
+REF_FA="${REF_ROOT}/liftover/hg38.fa"
+REF_FAI="${REF_ROOT}/liftover/hg38.fa.fai"
+REF_DICT="${REF_ROOT}/liftover/hg38.dict"
 
 if [[ -f "$REF_FA" ]]; then
   echo "[SKIP] Reference FASTA already exists: $REF_FA"
@@ -312,7 +312,7 @@ log_step "[STEP 6] SpliceAI (SNV + INDEL VCFs)"
 
 # SpliceAI is gated behind an Illumina BaseSpace login and cannot be
 # downloaded automatically. Files must be manually downloaded and placed
-# in SPLICEAI_STAGING_DIR before running this script.
+# in SPLICEAI_STAGING_DIR before running this script. See comments at the end of this script
 #
 # Expected files:
 #   spliceai_scores.raw.snv.hg38.vcf.gz
@@ -542,3 +542,106 @@ echo " Config file    : $(realpath "$CONFIG_FILE")"
 echo ""
 echo " If a step failed, re-run this script — completed steps will be skipped."
 echo "================================================================================"
+
+
+###############################################################################
+# SpliceAI Download Script (HPC)
+#
+# This script:
+#   1. Installs BaseSpace CLI
+#   2. Authenticates (interactive)
+#   3. Lists project and dataset
+#   4. Downloads dataset using tmux (safe for SSH disconnects)
+#
+# Usage:
+#   chmod +x download_spliceai.sh
+#   ./download_spliceai.sh
+###############################################################################
+
+# set -e
+
+# ###############################################################################
+# # CONFIGURATION
+# ###############################################################################
+
+# PROJECT_ID="66029966"
+# DATASET_ID="ds.20a701bc58ab45b59de2576db79ac8d0"
+# OUTPUT_DIR="${HOME}/spliceai_staging"
+# TMUX_SESSION="spliceai_download"
+
+# ###############################################################################
+# # STEP 1: Install BaseSpace CLI (if not already installed)
+# ###############################################################################
+
+# echo "Installing BaseSpace CLI..."
+
+# # Create local bin directory
+# mkdir -p "${HOME}/bin"
+
+# # Download CLI only if not already present
+# if [ ! -f "${HOME}/bin/bs" ]; then
+#     wget https://launch.basespace.illumina.com/CLI/latest/amd64-linux/bs \
+#         -O "${HOME}/bin/bs"
+#     chmod +x "${HOME}/bin/bs"
+# fi
+
+# # Add to PATH if needed
+# if [[ ":$PATH:" != *":${HOME}/bin:"* ]]; then
+#     export PATH="${HOME}/bin:$PATH"
+#     echo 'export PATH="${HOME}/bin:$PATH"' >> "${HOME}/.bashrc"
+# fi
+
+# ###############################################################################
+# # STEP 2: Authenticate (interactive step)
+# ###############################################################################
+
+# echo "Authenticating with BaseSpace..."
+# echo "Follow the URL printed below in your browser, then press Enter."
+
+# # This will prompt a URL → open it in your local browser
+# bs auth || true
+
+# ###############################################################################
+# # STEP 3: Verify project and dataset (optional but useful)
+# ###############################################################################
+
+# echo "Checking project..."
+# bs list projects | grep "${PROJECT_ID}" || echo "Project not found"
+
+# echo "Checking datasets..."
+# bs list datasets --project-id "${PROJECT_ID}" || true
+
+# ###############################################################################
+# # STEP 4: Download using tmux (prevents job interruption)
+# ###############################################################################
+
+# echo "Starting download in tmux session: ${TMUX_SESSION}"
+
+# # Create output directory
+# mkdir -p "${OUTPUT_DIR}"
+
+# # If tmux session already exists → attach
+# if tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
+#     echo "Session already exists. Attaching..."
+#     tmux attach -t "${TMUX_SESSION}"
+# else
+#     # Start new tmux session in background
+#     tmux new -d -s "${TMUX_SESSION}" "
+#         echo 'Downloading SpliceAI dataset...';
+#         bs dataset download \
+#             --id ${DATASET_ID} \
+#             -o ${OUTPUT_DIR};
+#         echo 'Download complete.';
+#         bash
+#     "
+
+#     echo "Download started in tmux."
+#     echo "To monitor progress:"
+#     echo "  tmux attach -t ${TMUX_SESSION}"
+# fi
+
+# ###############################################################################
+# # END
+# ###############################################################################
+
+# echo "Script finished."
