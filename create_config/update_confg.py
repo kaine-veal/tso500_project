@@ -123,7 +123,7 @@ DROP_FIELDS = {
     "ClinVar_GENEINFO_",
     "ONCOKB_VUS.1",
 }
-
+print("Drop:",len(DROP_FIELDS))
 
 # =============================================================================
 # TIER 2 FIELDS — Bioinformatician friendly (~400 columns)
@@ -464,7 +464,7 @@ TIER2_FIELDS = {
     "OriginalStart",
     "ReverseComplementedAlleles",
 }
-
+print("TIER2_FIELDS:",len(TIER2_FIELDS))
 # =============================================================================
 # TIER 2 — ONCOKB_TX_* and ONCOKB_DIAG_* pattern subsets
 #
@@ -487,6 +487,7 @@ TIER2_ONCOKB_TX_PATTERNS = [
     "ONCOKB_TX_*_levelAssociatedCancerType.tissue",
     "ONCOKB_TX_*_levelExcludedCancerTypes",
 ]
+print("TIER2_ONCOKB_TX_PATTERNS:",len(TIER2_ONCOKB_TX_PATTERNS))
 
 TIER2_ONCOKB_DIAG_PATTERNS = [
     "ONCOKB_DIAG_*_levelOfEvidence",
@@ -497,7 +498,7 @@ TIER2_ONCOKB_DIAG_PATTERNS = [
     "ONCOKB_DIAG_*_tumorType.mainType.tumorForm",
     "ONCOKB_DIAG_*_tumorType.tissue",
 ]
-
+print("TIER2_ONCOKB_DIAG_PATTERNS:",len(TIER2_ONCOKB_DIAG_PATTERNS))
 
 # =============================================================================
 # TIER 3 FIELDS — Clinician friendly (~200 columns)
@@ -612,7 +613,7 @@ TIER3_FIELDS = {
     "SVTYPE",
     "SVLEN",
 }
-
+print("TIER3_FIELDS:",len(TIER3_FIELDS))
 
 # =============================================================================
 # Extract ClinVar INFO descriptions from VCF header
@@ -732,17 +733,74 @@ def apply_tiers(input_yaml, output_yaml):
     clinvar_info = load_clinvar_descriptions(CLINVAR_VCF)
     update_clinvar_descriptions(fields, clinvar_info)
 
+    # =============================================================================
+    # Assign tier to field_patterns
+    # =============================================================================
+
+    patterns = data.get("field_patterns", [])
+
+    for pattern_def in patterns:
+
+        pattern = pattern_def.get("pattern", "").strip()
+
+        # --- Drop (rare, but keep for completeness) ---
+        if pattern in DROP_FIELDS:
+            pattern_def["tier"] = "drop"
+            continue
+
+        # --- Tier 3 (if you ever define pattern-based Tier3) ---
+        if pattern in TIER3_FIELDS:
+            pattern_def["tier"] = 3
+            continue
+
+        # --- Tier 2 via explicit pattern groups ---
+        if matches_any_pattern(pattern, TIER2_ONCOKB_TX_PATTERNS + TIER2_ONCOKB_DIAG_PATTERNS):
+            pattern_def["tier"] = 2
+            continue
+
+        # --- Tier 2 fallback for ONCOKB ---
+        # if pattern.startswith("ONCOKB_TX_") or pattern.startswith("ONCOKB_DIAG_"):
+        #     pattern_def["tier"] = 2
+        #     continue
+
+        # --- Default Tier 1 ---
+        pattern_def["tier"] = 1
+
+    
+    # =============================================================================
+    # ✅ VALIDATION (PUT IT HERE)
+    # =============================================================================
+    for p in patterns:
+        if "tier" not in p:
+            print(f"WARNING: pattern without tier → {p.get('pattern')}")
+
+
+    # --- Write output ---
+    with open(output_yaml, "w") as f:
+        yaml.safe_dump(data, f, sort_keys=False)
+
     # --- Write output ---
     with open(output_yaml, "w") as f:
         yaml.safe_dump(data, f, sort_keys=False)
 
     print("\nTier assignment complete\n")
     print("Summary:")
-    print(f"  Tier 1 : {counts['tier1']}")
+    #print(f"  Tier 1 : {counts['tier1']}")
     print(f"  Tier 2 : {counts['tier2']}")
     print(f"  Tier 3 : {counts['tier3']}")
     print(f"  Dropped: {counts['drop']}")
 
+    yaml_fields = set(fields.keys())
+
+    print("\n--- DEBUG ---")
+
+    print(f"TIER2 missing from YAML: {len(TIER2_FIELDS - yaml_fields)}")
+    print(f"TIER3 missing from YAML: {len(TIER3_FIELDS - yaml_fields)}")
+    print(f"DROP missing from YAML : {len(DROP_FIELDS - yaml_fields)}")
+
+    print("\nExample missing Tier2 fields:")
+    for f in list(TIER2_FIELDS - yaml_fields)[:10]:
+        print("  ", f)
 
 if __name__ == "__main__":
     apply_tiers(INPUT_YAML, OUTPUT_YAML)
