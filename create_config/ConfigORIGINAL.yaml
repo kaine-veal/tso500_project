@@ -1789,6 +1789,31 @@ fields:
     source: VCF
     version: VCF_v4.2
 
+  ONCOKB_DIAG_LVL:
+    description: Highest diagnostic implication level reported by OncoKB for the queried variant
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  ONCOKB_EFFECT_DESC:
+    description: Description of the mutation effect reported by OncoKB
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  ONCOKB_FDA_LVL:
+    description: Highest FDA-recognised level of evidence for the variant reported by OncoKB
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  ONCOKB_PMIDS:
+    description: PubMed identifiers supporting the OncoKB annotation for the queried variant
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  ONCOKB_SENS_LVL:
+    description: Highest therapeutic sensitivity level reported by OncoKB for the queried variant
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
 field_patterns:
 
   - pattern: "ONCOKB_DIAG_*_levelOfEvidence"
@@ -1948,5 +1973,30 @@ field_patterns:
   
   - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.mainType.name"
     description: "OncoKB treatment associated main cancer type name"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.color"
+    description: "OncoKB treatment associated cancer type color"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.level"
+    description: "OncoKB treatment associated cancer type hierarchy level"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.mainType.id"
+    description: "OncoKB treatment associated main cancer type ID"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.parent"
+    description: "OncoKB treatment associated cancer type parent node"
+    source: OncoKB
+    version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"
+
+  - pattern: "ONCOKB_TX_*_levelAssociatedCancerType.tumorForm"
+    description: "OncoKB treatment associated cancer tumor form"
     source: OncoKB
     version: "Refer to the ONCOKB_DATA_VERSION column and datetime of the last update of the variant"

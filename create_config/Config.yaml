@@ -3,12 +3,12 @@ fields:
     description: Tumour sample identifier
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   Chromosome:
     description: Chromosome name
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   CHROM:
     description: Chromosome name
     source: VEP
@@ -18,12 +18,12 @@ fields:
     description: Variant start position
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   End_Position:
     description: Variant end position
     source: Computed
     version: internal_v1
-    tier: 1
+    tier: 3
   Reference_Allele:
     description: Reference allele
     source: VCF
@@ -43,12 +43,12 @@ fields:
     description: Reference allele from the VCF record
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   ALT:
     description: Alternate allele from the VCF record
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   QUAL:
     description: Variant quality score from the VCF record
     source: VCF
@@ -58,7 +58,7 @@ fields:
     description: Filter status from the VCF record
     source: VCF
     version: vcf_v2.4
-    tier: 2
+    tier: 3
   Tumor_Seq_Allele1:
     description: Tumour allele 1
     source: VCF
@@ -73,22 +73,22 @@ fields:
     description: Frequency of existing variant in 1000 Genomes https://www.ensembl.org/info/docs/tools/vep/vep_formats.html
     source: VCF
     version: vcf_v2.4
-    tier: 1
+    tier: 3
   HGVSp_Short:
     description: Short HGVS protein notation
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   HGVSp:
     description: The HGVS protein sequence name https://www.ensembl.org/info/docs/tools/vep/vep_formats.html
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   NM_Transcript:
     description: RefSeq NM transcript identifier
     source: VEP
     version: 114.2
-    tier: 2
+    tier: 3
   Allele:
     description: Alternate allele used in annotation
     source: VEP
@@ -98,17 +98,17 @@ fields:
     description: Predicted variant consequence
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   IMPACT:
     description: Predicted functional impact
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   SYMBOL:
     description: Gene symbol
     source: VEP
     version: 114.2
-    tier: 2
+    tier: 3
   Gene:
     description: Ensembl gene ID
     source: VEP
@@ -133,22 +133,22 @@ fields:
     description: Exon number within transcript
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   INTRON:
     description: Intron number within transcript
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   HGVSc:
     description: HGVS coding DNA notation
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   cDNA_position:
     description: Position within cDNA
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   CDS_position:
     description: Position within CDS
     source: VEP
@@ -173,7 +173,7 @@ fields:
     description: Known variant identifiers rs1234567 and or COSV1234567
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   DISTANCE:
     description: Shortest distance from variant to transcript. Note DISTANCE of 0
       is possible for insertions happening just before or after a transcript because
@@ -181,24 +181,24 @@ fields:
       happens.
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   STRAND:
     description: Strand of the feature (1/-1)
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   FLAGS:
     description: Transcript quality flags. Transcript annotation flags indicating
       potential issues with transcript completeness or coding sequence annotation
       (e.g. cds_start_NF, cds_end_NF) 3https://www.ensembl.org/info/genome/genebuild/transcript_quality_tags.html
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   VARIANT_CLASS:
     description: Sequence Ontology variant class https://www.ensembl.org/info/genome/variation/prediction/classification.html#classes
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   SYMBOL_SOURCE:
     description: Source of gene symbol
     source: VEP
@@ -218,17 +218,17 @@ fields:
     description: Matched Annotation from NCBI and EMBL-EBI flag. https://www.ensembl.org/info/genome/genebuild/mane.html
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   MANE_SELECT:
     description: MANE Select transcript. https://www.ensembl.org/info/genome/genebuild/mane.html
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   MANE_PLUS_CLINICAL:
     description: MANE Plus Clinical transcript. https://www.ensembl.org/info/genome/genebuild/mane.html
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 2
   TSL:
     description: Transcript support level
     source: VEP
@@ -284,12 +284,12 @@ fields:
     description: SIFT prediction score
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   PolyPhen:
     description: PolyPhen prediction score
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   DOMAINS:
     description: Protein domains overlapping variant
     source: VEP
@@ -325,12 +325,12 @@ fields:
     description: Maximum allele frequency observed across all population datasets
     source: VEP
     version: 114.2
-    tier: 2
+    tier: 3
   MAX_AF_POPS:
     description: Population in which the maximum allele frequency was observed
     source: VEP
     version: 114.2
-    tier: 2
+    tier: 3
   TRANSCRIPTION_FACTORS:
     description: Transcription factors associated with the regulatory motif
     source: VEP
@@ -370,7 +370,7 @@ fields:
       0.5 indicate strong predicted splice impact.\n"
     source: SpliceAI
     version: 1.3
-    tier: 1
+    tier: 3
   SpliceAI_pred_DS_AL:
     description: 'SpliceAI delta score predicting the probability that the variant
       disrupts an existing splice acceptor site (acceptor loss). The score ranges
@@ -380,7 +380,7 @@ fields:
       '
     source: SpliceAI
     version: 1.3
-    tier: 1
+    tier: 3
   SpliceAI_pred_DS_DG:
     description: 'SpliceAI delta score predicting the probability that the variant
       creates a new splice donor site (donor gain). The score ranges from 0 to 1,
@@ -390,7 +390,7 @@ fields:
       '
     source: SpliceAI
     version: 1.3
-    tier: 1
+    tier: 3
   SpliceAI_pred_DS_DL:
     description: 'SpliceAI delta score predicting the probability that the variant
       disrupts an existing splice donor site (donor loss). Scores range from 0 to
@@ -400,7 +400,7 @@ fields:
       '
     source: SpliceAI
     version: 1.3
-    tier: 1
+    tier: 3
   SpliceAI_pred_DP_AG:
     description: 'Predicted distance in base pairs between the variant position and
       the newly created splice acceptor site (acceptor gain). Positive or negative
@@ -452,49 +452,49 @@ fields:
       of missense variants. https://sites.google.com/site/revelgenomics/
     source: REVEL
     version: 1.3
-    tier: 1
+    tier: 3
   LOEUF:
     description: Loss-of-function observed/expected upper bound fraction indicating
       gene intolerance
     source: Karczewski et al., Nature 2020 The mutational constraint spectrum quantified
       from variation in 141,456 humans
     version: gnomAD_v4.0
-    tier: 1
+    tier: 3
   AF:
     description: Global allele frequency from population datasets
     source: VEP
     version: 114.2
-    tier: 1
+    tier: 3
   AFR_AF:
     description: Allele frequency in African populations (1000G/gnomAD)
     source: gnomAD/1000G
     version: VEP_114.2
-    tier: 1
+    tier: 2
   AMR_AF:
     description: Allele frequency in Admixed American populations
     source: gnomAD/1000G
     version: VEP_114.2
-    tier: 1
+    tier: 2
   EAS_AF:
     description: Allele frequency in East Asian populations
     source: gnomAD/1000G
     version: VEP_114.2
-    tier: 1
+    tier: 2
   EUR_AF:
     description: Allele frequency in European populations
     source: gnomAD/1000G
     version: VEP_114.2
-    tier: 1
+    tier: 2
   SAS_AF:
     description: Allele frequency in South Asian populations
     source: gnomAD/1000G
     version: VEP_114.2
-    tier: 1
+    tier: 2
   gnomADe_AF:
     description: Allele frequency in gnomAD exomes
     source: gnomAD Exomes
     version: gnomAD_v4.0
-    tier: 2
+    tier: 3
   gnomADe_AFR_AF:
     description: Allele frequency in African/African-American populations (gnomAD
       exomes)
@@ -545,7 +545,7 @@ fields:
     description: Allele frequency in gnomAD genomes
     source: gnomAD Genomes
     version: gnomAD_v4.0
-    tier: 2
+    tier: 3
   gnomADg_AFR_AF:
     description: Allele frequency in African populations (gnomAD genomes)
     source: gnomAD Genomes
@@ -625,173 +625,173 @@ fields:
     description: allele frequencies from GO-ESP
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_AF_EXAC:
     description: allele frequencies from ExAC
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_AF_TGP:
     description: allele frequencies from TGP
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ALLELEID:
     description: the ClinVar Allele ID
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNDN:
     description: ClinVar's preferred disease name for the concept specified by disease
       identifiers in CLNDISDB
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_CLNDNINCL:
     description: 'For included Variant : ClinVar''s preferred disease name for the
       concept specified by disease identifiers in CLNDISDB'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNDISDB:
     description: Tag-value pairs of disease database name and identifier submitted
       for germline classifications, e.g. OMIM:NNNNNN
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNDISDBINCL:
     description: 'For included Variant: Tag-value pairs of disease database name and
       identifier for germline classifications, e.g. OMIM:NNNNNN'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNHGVS:
     description: Top-level (primary assembly, alt, or patch) HGVS expression.
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_CLNREVSTAT:
     description: ClinVar review status of germline classification for the Variation
       ID
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_CLNSIG:
     description: Aggregate germline classification for this single variant; multiple
       values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_CLNSIGCONF:
     description: Conflicting germline classification for this single variant; multiple
       values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNSIGINCL:
     description: Germline classification for a haplotype or genotype that includes
       this variant. Reported as pairs of VariationID:classification; multiple values
       are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNSIGSCV:
     description: SCV accession numbers for the submissions that contribute to the
       aggregate germline classification in ClinVar; multiple values are separated
       by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNVC:
     description: Variant type
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNVCSO:
     description: Sequence Ontology id for variant type
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_CLNVI:
     description: the variant's clinical sources reported as tag-value pairs of database
       and variant identifier
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_DBVARID:
     description: nsv accessions from dbVar for the variant
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_GENEINFO:
     description: Gene(s) for the variant reported as gene symbol:gene id. The gene
       symbol and id are delimited by a colon (:) and each pair is delimited by a vertical
       bar (|)
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_MC:
     description: comma separated list of molecular consequence in the form of Sequence
       Ontology ID|molecular_consequence
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCDN:
     description: ClinVar's preferred disease name for the concept specified by disease
       identifiers in ONCDISDB
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCDNINCL:
     description: 'For included variant: ClinVar''s preferred disease name for the
       concept specified by disease identifiers in ONCDISDBINCL'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCDISDB:
     description: Tag-value pairs of disease database name and identifier submitted
       for oncogenicity classifications, e.g. MedGen:NNNNNN
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCDISDBINCL:
     description: 'For included variant: Tag-value pairs of disease database name and
       identifier for oncogenicity classifications, e.g. OMIM:NNNNNN'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONC:
     description: Aggregate oncogenicity classification for this single variant; multiple
       values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_ONCINCL:
     description: Oncogenicity classification for a haplotype or genotype that includes
       this variant. Reported as pairs of VariationID:classification; multiple values
       are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCREVSTAT:
     description: ClinVar review status of oncogenicity classification for the Variation
       ID
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_ONCSCV:
     description: SCV accession numbers for the submissions that contribute to the
       aggregate oncogenicity classification in ClinVar; multiple values are separated
       by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ONCCONF:
     description: Conflicting oncogenicity classification for this single variant;
       multiple values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_ORIGIN:
     description: 'Allele origin. One or more of the following values may be added:
       0 - unknown; 1 - germline; 2 - somatic; 4 - inherited; 8 - paternal; 16 - maternal;
@@ -799,62 +799,62 @@ fields:
       1073741824 - other'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_RS:
     description: dbSNP ID (i.e. rs number)
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCIDN:
     description: ClinVar's preferred disease name for the concept specified by disease
       identifiers in SCIDISDB
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCIDNINCL:
     description: 'For included variant: ClinVar''s preferred disease name for the
       concept specified by disease identifiers in SCIDISDBINCL'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCIDISDB:
     description: Tag-value pairs of disease database name and identifier submitted
       for somatic clinial impact classifications, e.g. MedGen:NNNNNN
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCIDISDBINCL:
     description: 'For included variant: Tag-value pairs of disease database name and
       identifier for somatic clinical impact classifications, e.g. OMIM:NNNNNN'
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCIREVSTAT:
     description: ClinVar review status of somatic clinical impact for the Variation
       ID
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_SCI:
     description: Aggregate somatic clinical impact for this single variant; multiple
       values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 3
   ClinVar_SCIINCL:
     description: Somatic clinical impact classification for a haplotype or genotype
       that includes this variant. Reported as pairs of VariationID:classification;
       multiple values are separated by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   ClinVar_SCISCV:
     description: SCV accession numbers for the submissions that contribute to the
       aggregate somatic clinical impact in ClinVar; multiple values are separated
       by a vertical bar
     source: ClinVar
     version: ClinVar_2024-12
-    tier: 1
+    tier: 2
   CIViC:
     description: CIViC variant identifier linking the variant to CIViC knowledgebase
       entries
@@ -865,158 +865,158 @@ fields:
     description: HGNC Gene Symbol
     source: CIViC
     version: CIViC_v3.6
-    tier: 2
+    tier: 3
   CIViC_VT:
     description: CIViC Variant Name
     source: CIViC
     version: CIViC_v3.6
-    tier: 2
+    tier: 3
   CIViC_CSQ_Allele:
     description: Allele reported in CIViC annotation
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_Consequence:
     description: Variant consequence annotation associated with the CIViC record
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_SYMBOL:
     description: Gene symbol associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_Entrez Gene ID:
     description: Entrez Gene identifier for the gene associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_Feature_type:
     description: Feature type associated with the variant annotation (e.g. transcript)
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_Feature:
     description: Transcript or genomic feature identifier used for the CIViC annotation
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_HGVSc:
     description: HGVS coding DNA notation associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_HGVSp:
     description: HGVS protein notation associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Variant Name:
     description: CIViC variant name
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Variant ID:
     description: Unique CIViC identifier for the variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Variant Aliases:
     description: Alternative names used for the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Variant URL:
     description: URL linking to the CIViC variant page
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Molecular Profile Name:
     description: Name of the CIViC molecular profile associated with the variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Molecular Profile ID:
     description: Unique identifier of the CIViC molecular profile
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Molecular Profile Aliases:
     description: Molecular Profile Aliases
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Molecular Profile URL:
     description: URL linking to the CIViC molecular profile page
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC HGVS:
     description: HGVS notation describing the variant used in CIViC
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_Allele Registry ID:
     description: ClinGen Allele Registry identifier associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_ClinVar IDs:
     description: ClinVar identifiers associated with the CIViC variant
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Molecular Profile Score:
     description: Score assigned by CIViC representing evidence strength for the molecular
       profile
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Type:
     description: Type of CIViC entity represented (e.g. evidence, assertion)
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_Entity_ID:
     description: Unique CIViC identifier for the entity record
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Disease:
     description: Unique CIViC identifier for Entity Disease
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Entity URL:
     description: URL linking to the CIViC entity page
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Source:
     description: Source publication or database supporting the CIViC entity
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Variant Origin:
     description: Variant origin classification (e.g. somatic, germline)
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Status:
     description: Curation status of the CIViC entity
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Entity Significance:
     description: Clinical significance of the variant according to CIViC evidence
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Entity Direction:
     description: Direction of clinical evidence (e.g. supports or does not support)
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Entity ID:
     description: Disease context associated with the CIViC entity
     source: CIViC
@@ -1026,52 +1026,52 @@ fields:
     description: Therapies associated with the CIViC entity
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Entity Therapy Interaction Type:
     description: Interaction type between therapies in CIViC evidence (e.g. combination)
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Evidence Phenotypes:
     description: Phenotypes associated with CIViC evidence records
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Evidence Level:
     description: CIViC evidence level classification
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Evidence Rating:
     description: CIViC evidence rating score
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Assertion ACMG Codes:
     description: ACMG codes associated with CIViC assertions
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Assertion AMP Category:
     description: AMP classification category assigned by CIViC
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Assertion NCCN Guideline:
     description: NCCN guideline references associated with the CIViC assertion
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ_CIViC Assertion Regulatory Approval:
     description: Regulatory approval status associated with the CIViC assertion
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 3
   CIViC_CSQ_CIViC Assertion FDA Companion Test:
     description: FDA companion diagnostic test associated with the CIViC assertion
     source: CIViC
     version: CIViC_v3.6
-    tier: 1
+    tier: 2
   CIViC_CSQ:
     description: Allele|Consequence|SYMBOL|Entrez Gene ID|Feature_type|Feature|HGVSc|HGVSp|CIViC
       Variant Name|CIViC Variant ID|CIViC Variant Aliases|CIViC Variant URL|CIViC
@@ -1091,12 +1091,12 @@ fields:
     description: Indicates whether the variant overlaps a curated cancer hotspot
     source: Cancer Hotspots
     version: changv2
-    tier: 1
+    tier: 3
   CancerHotspots_HOTSPOT:
     description: Protein-level hotspot annotation from Cancer Hotspots database
     source: Cancer Hotspots
     version: changv2
-    tier: 1
+    tier: 3
   CancerHotspots_HOTSPOT_GENE:
     description: Gene associated with the Cancer Hotspots protein-level hotspot
     source: Cancer Hotspots
@@ -1142,7 +1142,7 @@ fields:
     description: Known somatic site, used to increase confidence in call
     source: Cancer Hotspots
     version: changv2
-    tier: 1
+    tier: 3
   NCBI_Build:
     description: Genome build used in the OncoKB annotation
     source: OncoKB
@@ -1154,37 +1154,37 @@ fields:
       symbol from GenomeNexus. This can be cross-referenced with your own gene name.
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_genefx:
     description: Functional classification of the gene in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_variant:
     description: Variant name recognized by OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_allelef:
     description: Allele frequency or allele annotation used by OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_oncog:
     description: Oncogenic classification assigned by OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_highes:
     description: Highest level of evidence associated with the variant
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_others:
     description: Other significant levels of evidence reported by OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_hotspot:
     description: Indicates whether the variant is considered a hotspot in OncoKB
     source: OncoKB
@@ -1195,7 +1195,7 @@ fields:
       variant
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_diagnosticImplications:
     description: Detailed diagnostic implications reported by OncoKB for the queried
       variant
@@ -1207,82 +1207,82 @@ fields:
       TRUE or FALSE
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_QUERY_ALTERATION:
     description: Variant alteration string submitted in the OncoKB query
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_QUERY_ENTREZ_GENE_ID:
     description: Entrez gene identifier used in the OncoKB query
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_QUERY_HUGO_SYMBOL:
     description: HGNC gene symbol used in the OncoKB query.
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_QUERY_REF_GENOME:
     description: Reference genome build used for the OncoKB query
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_QUERY_TUMOR_TYPE:
     description: Tumor type used in the OncoKB query context
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_exon:
     description: Exon associated with the OncoKB variant annotation
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_geneS:
     description: Gene summary provided by OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_variantf:
     description: Functional description of the variant from OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_tumor1:
     description: Tumor type associated with the OncoKB evidence
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_progno:
     description: Prognostic implications described in OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_diagno:
     description: Diagnostic implications described in OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_treatm:
     description: Treatment implications described in OncoKB
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_dataVe:
     description: Version of the OncoKB dataset used for annotation
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_lastUp:
     description: Date of the last update in the OncoKB dataset
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_PROGNOSTIC_IMPLICATIONS:
     description: This need to be updated. I cant find documentation online.
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: drop
   ONCOKB_variantSummary:
     description: This need to be updated. I cant find documentation online.
     source: OncoKB
@@ -1317,17 +1317,17 @@ fields:
     description: Highest FDA-recognized level of evidence for the variant https://www.oncokb.org/fda-levels
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_prognosticSummary:
     description: Text summary of prognostic implications from OncoKB https://www.oncokb.org/prognostic-levels
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_diagnosticSummary:
     description: Text summary of diagnostic implications from OncoKB https://www.oncokb.org/diagnostic-levels
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_geneExist:
     description: Indicates whether the gene exists in OncoKB
     source: OncoKB
@@ -1352,18 +1352,18 @@ fields:
     description: Other significant therapeutic sensitivity levels
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_otherSignificantResistanceLevels:
     description: Other significant therapeutic resistance levels
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_VUS:
     description: Indicates whether the variant is classified as a Variant of Uncertain
       Significance
     source: OncoKB
     version: Version-Refer to the ONCOKB_DATA_VERSION column
-    tier: 1
+    tier: 2
   ONCOKB_geneSummary:
     description: Gene-level summary provided by OncoKB
     source: OncoKB
@@ -1479,18 +1479,18 @@ fields:
     description: Length of the structural variant event
     source: Manta
     version: Manta_v1.6
-    tier: 2
+    tier: 3
   SVTYPE:
     description: Structural variant type (DEL, DUP, INV, BND, INS)
     source: Manta
     version: Manta_v1.6
-    tier: 2
+    tier: 3
   ONCOKB_DATA_VERSION:
     description: Version of the OncoKB dataset used for annotation
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   ONCOKB_EFFECT:
     description: Functional effect of the variant according to OncoKB
     source: OncoKB
@@ -1509,19 +1509,19 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_HOTSPOT:
     description: Indicates whether the variant is considered a hotspot by OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   ONCOKB_LAST_UPDATE:
     description: Date of the most recent update to the OncoKB record
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   ONCOKB_ONCOGENIC:
     description: Oncogenic classification assigned by OncoKB
     source: OncoKB
@@ -1533,14 +1533,14 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_TUMOR_TYPE_SUMMARY:
     description: Tumor type summary describes the therapeutic implication that applies
       to the indication. Only when parameter -d is specified
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_VARIANT_EXIST:
     description: Indicates whether the queried variant exists in OncoKB
     source: OncoKB
@@ -1553,7 +1553,7 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_treatments:
     description: Treatment implications and associated therapies from OncoKB
     source: OncoKB
@@ -1565,7 +1565,7 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_JSON:
     description: Raw JSON response returned by OncoKB for the queried variant
     source: OncoKB
@@ -1577,7 +1577,7 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.referenceGenome:
     description: Reference genome used in the OncoKB query
     source: OncoKB
@@ -1607,13 +1607,13 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.svType:
     description: Structural variant type submitted in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.tumorType:
     description: Tumour type submitted in the OncoKB query
     source: OncoKB
@@ -1625,37 +1625,37 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.proteinStart:
     description: Protein start position submitted in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.proteinEnd:
     description: Protein end position submitted in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.hgvs:
     description: HGVS expression submitted in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.hgvsInfo:
     description: Parsed HGVS information used in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_query.canonicalTranscript:
     description: Canonical transcript used in the OncoKB query
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: drop
   ONCOKB_mutationEffect.knownEffect:
     description: Known mutation effect classification reported by OncoKB
     source: OncoKB
@@ -1667,38 +1667,38 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_mutationEffect.citations.pmids:
     description: PubMed identifiers supporting the mutation effect in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOKB_mutationEffect.citations.abstracts:
     description: Abstract-based citations supporting the mutation effect in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ANNOTATED:
     description: Whether the variant is annotated by OncoKB successfully. TRUE, FALSE
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   GENE_IN_ONCOKB:
     description: Whether the gene has been curated by the OncoKB Team. TRUE, FALSE
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   VARIANT_IN_ONCOKB:
     description: Whether the variant has been curated by the OncoKB Team. Note when
       a variant does not exist, it may still have annotations. True, False
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   MUTATION_EFFECT:
     description: The biological effect of a mutation/alteration on the protein function
       that gives rise to changes in the biological properties of cells expressing
@@ -1709,14 +1709,14 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   MUTATION_EFFECT_CITATIONS:
     description: All citations related to the biological effect. PMID, Abstract, Website
       link
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   ONCOGENIC:
     description: "In OncoKB, \u201Concogenic\u201D is defined as \u201Creferring to\
       \ the ability to induce or cause cancer\u201D as described in the second edition\
@@ -1725,147 +1725,147 @@ fields:
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   LEVEL_1:
     description: The leveled therapeutic implications.
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   LEVEL_2:
     description: Presence of Level 2 therapeutic evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   LEVEL_3A:
     description: Presence of Level 3A therapeutic evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   LEVEL_3B:
     description: Presence of Level 3B therapeutic evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_4:
     description: Presence of Level 4 therapeutic evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_R1:
     description: Presence of Level R1 resistance evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   LEVEL_R2:
     description: Presence of Level R2 resistance evidence in OncoKB
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   HIGHEST_LEVEL:
     description: The highest level of evidence for therapeutic implications. Order
       LEVEL_R1 > LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4 > LEVEL_R2
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   HIGHEST_SENSITIVE_LEVEL:
     description: The highest sensitive level of evidence for therapeutic implications.
       Order LEVEL_1 > LEVEL_2 > LEVEL_3A > LEVEL_3B > LEVEL_4
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   HIGHEST_RESISTANCE_LEVEL:
     description: The highest resistance level of evidence for therapeutic implications.
       Order LEVEL_R1 > LEVEL_R2
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   TX_CITATIONS:
     description: All citations related to therapeutic implications. PMID, Abstract,
       Website link
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Dx1:
     description: The leveled diagnostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Dx2:
     description: The leveled diagnostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Dx3:
     description: The leveled diagnostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   HIGHEST_DX_LEVEL:
     description: The highest level of evidence for diagnostic implications. LEVEL_Dx1,
       LEVEL_Dx2, LEVEL_Dx3
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   DX_CITATIONS:
     description: All citations related to diagnostic implications. PMID, Abstract,
       Website link
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Px1:
     description: The leveled prognostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Px2:
     description: The leveled prognostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   LEVEL_Px3:
     description: The leveled prognostic implications. Tumor type the level of evidence
       is assigned to
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   HIGHEST_PX_LEVEL:
     description: The highest level of evidence for prognostic implications. LEVEL_Px1,
       LEVEL_Px2, LEVEL_Px3
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 3
   PX_CITATIONS:
     description: All citations related to prognostic implications. PMID, Abstract,
       Website link
     source: OncoKB
     version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
       of the variant
-    tier: 1
+    tier: 2
   FORMAT:
     description: FORMAT column describing the genotype fields available for each sample
     source: VCF
@@ -1880,73 +1880,107 @@ fields:
     description: Allelic depths for reference and alternate alleles
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 3
   F1R2:
     description: Count of reads supporting the allele in the F1R2 orientation
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   F2R1:
     description: Count of reads supporting the allele in the F2R1 orientation
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   GT:
     description: Genotype call for the sample
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 3
   MB:
     description: Strand bias metric used by the variant caller
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   OBC:
     description: Orientation Bias Filter base context
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   OBPa:
     description: Observed base probabilities for alternate alleles
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   OBParc:
     description: Observed base probabilities for reference and complement alleles
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   OBPsnp:
     description: Observed base probabilities for SNP detection
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   PR:
     description: Paired-read support for structural variant breakpoints
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   PS:
     description: Phase set identifier used to group phased variants
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   SB:
     description: Per-sample component statistics which comprise the Fisher's Exact
       Test to detect strand bias
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   SQ:
     description: Structural variant quality score
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
   SR:
     description: Split-read support for structural variant breakpoints
     source: VCF
     version: VCF_v4.2
-    tier: 1
+    tier: 2
+  ONCOKB_DIAG_LVL:
+    description: Highest diagnostic implication level reported by OncoKB for the queried
+      variant
+    source: OncoKB
+    version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+      of the variant
+    tier: 3
+  ONCOKB_EFFECT_DESC:
+    description: Description of the mutation effect reported by OncoKB
+    source: OncoKB
+    version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+      of the variant
+    tier: 2
+  ONCOKB_FDA_LVL:
+    description: Highest FDA-recognised level of evidence for the variant reported
+      by OncoKB
+    source: OncoKB
+    version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+      of the variant
+    tier: 3
+  ONCOKB_PMIDS:
+    description: PubMed identifiers supporting the OncoKB annotation for the queried
+      variant
+    source: OncoKB
+    version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+      of the variant
+    tier: 2
+  ONCOKB_SENS_LVL:
+    description: Highest therapeutic sensitivity level reported by OncoKB for the
+      queried variant
+    source: OncoKB
+    version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+      of the variant
+    tier: 3
 field_patterns:
 - pattern: ONCOKB_DIAG_*_levelOfEvidence
   description: OncoKB diagnostic implication level of evidence
@@ -2105,6 +2139,31 @@ field_patterns:
     of the variant
 - pattern: ONCOKB_TX_*_levelAssociatedCancerType.mainType.name
   description: OncoKB treatment associated main cancer type name
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+- pattern: ONCOKB_TX_*_levelAssociatedCancerType.color
+  description: OncoKB treatment associated cancer type color
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+- pattern: ONCOKB_TX_*_levelAssociatedCancerType.level
+  description: OncoKB treatment associated cancer type hierarchy level
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+- pattern: ONCOKB_TX_*_levelAssociatedCancerType.mainType.id
+  description: OncoKB treatment associated main cancer type ID
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+- pattern: ONCOKB_TX_*_levelAssociatedCancerType.parent
+  description: OncoKB treatment associated cancer type parent node
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+- pattern: ONCOKB_TX_*_levelAssociatedCancerType.tumorForm
+  description: OncoKB treatment associated cancer tumor form
   source: OncoKB
   version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
     of the variant
