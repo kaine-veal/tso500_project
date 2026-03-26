@@ -6,15 +6,18 @@
 #   Stage 2: Final image with all tools combined
 # ==============================================================================
 
-FROM ensemblorg/ensembl-vep:release_114.0 AS vep-base
+ARG VEP_VERSION=114.0
+FROM ensemblorg/ensembl-vep:release_${VEP_VERSION} AS vep-base
 
 # ==============================================================================
 # Final stage: combine everything into one image
 # ==============================================================================
 FROM ubuntu:22.04
 
+ARG VEP_VERSION=114.0
 LABEL maintainer="SMART Pipeline Team"
 LABEL description="SMART — Somatic Mutation Annotation and Reporting Tool"
+LABEL smart.vep.version="${VEP_VERSION}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
@@ -27,12 +30,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gzip \
     bzip2 \
     tabix \
+    bgzip \
     bcftools \
     samtools \
     openjdk-17-jre-headless \
     python3 \
     python3-pip \
-    python-is-python3 \
     perl \
     cpanminus \
     libdbi-perl \
@@ -47,15 +50,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g-dev \
     libbz2-dev \
     liblzma-dev \
+    libcurl4-openssl-dev \
+    libhts-dev \
     git \
     unzip \
-    liblist-moreutils-perl \
-    libbio-db-hts-perl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------- GATK 4.6.0.0 ----------
-ENV GATK_VERSION=4.6.0.0
+# ---------- GATK ----------
+ARG GATK_VERSION=4.6.0.0
+ENV GATK_VERSION=${GATK_VERSION}
+LABEL smart.gatk.version="${GATK_VERSION}"
 RUN mkdir -p /opt/gatk && \
     wget -q "https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip" \
          -O /tmp/gatk.zip && \
@@ -68,7 +73,7 @@ ENV PATH="/opt/gatk:${PATH}"
 # ---------- VEP (copy from vep-base stage) ----------
 COPY --from=vep-base /opt/vep /opt/vep
 ENV PATH="/opt/vep/src/ensembl-vep:${PATH}"
-ENV PERL5LIB=/opt/vep/src/ensembl-vep:/opt/vep/src/ensembl-vep/modules
+ENV PERL5LIB="/opt/vep/src/ensembl-vep:/opt/vep/src/ensembl-vep/modules:${PERL5LIB:-}"
 
 # ---------- Python dependencies ----------
 COPY requirements.txt /tmp/requirements.txt

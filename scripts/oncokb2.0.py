@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """
-Combined OncoKB annotator for VEP-annotated VCF files (v2.5).
+Combined OncoKB annotator for VEP-annotated VCF files (v3.0 — SMART).
 
 - SNVs / indels / MantaINS  → /annotate/mutations/byProteinChange
 - CNVs (MantaDUP/DEL)       → /annotate/copyNumberAlterations
 
+Changes from v2.5:
+  - CSQ field indices are now parsed dynamically from the VCF header,
+    making the script compatible with any VEP version.
+  - Uses shared csq_parser module (or inline fallback).
+  - _extract_one_letter_protein() accepts hgvsp_index parameter.
+  - find_preferred_csq_and_protein() accepts CSQ index parameters.
+  - Guards against missing CSQ fields (index = -1).
+
 Requires:
-    - OncoKB token provided with --oncokb_token
-    - VCF annotated by VEP with CSQ field
-    - Optional preferred transcript list file for transcript prioritization
-      (matches NM IDs ignoring version numbers)
+  - OncoKB token provided with --oncokb_token
+  - VCF annotated by VEP with CSQ field
+  - Optional preferred transcript list file for transcript prioritization
+    (matches NM IDs ignoring version numbers)
 
 Notes:
-    - Selected OncoKB fields are flattened into dedicated INFO tags
-    - The full raw OncoKB JSON is also stored in ONCOKB_JSON
+  - Selected OncoKB fields are flattened into dedicated INFO tags
+  - The full raw OncoKB JSON is also stored in ONCOKB_JSON
 """
 
 import os
@@ -24,22 +32,55 @@ import argparse
 import requests
 from cyvcf2 import VCF, Writer
 
-# VEP CSQ FIELD INDEXES (Based on the provided header)
-MIN_FIELDS_FOR_MANE_STATUS = 42
-SYMBOL_INDEX = 3
-FEATURE_INDEX = 6   # Ensembl Transcript ID (ENST...)
 
-# --- REFSEQ/MANE INDICES ---
-MANE_TAG_INDEX = 25
-MANE_SELECT_NM_INDEX = 26
-MANE_PLUS_CLINICAL_NM_INDEX = 27
-MANE_STATUS_INDEX = 41
+# ---------------------------------------------------------
+# Dynamic CSQ header parsing
+# ---------------------------------------------------------
 
-HGVSP_INDEX = 11    # Protein Change (p. notation)
+def parse_csq_format(vcf_path: str) -> tuple[list[str], dict[str, int]]:
+    """
+    Read a VCF file header and extract the CSQ field names and their indices.
+
+    Returns:
+        (field_names, field_map)
+        - field_names: list of CSQ field names in order
+        - field_map:   dict mapping field name → positional index
+    """
+    with open(vcf_path) as f:
+        for line in f:
+            if line.startswith("##INFO=<ID=CSQ"):
+                m = re.search(r'Format:\s*(.+?)"', line)
+                if m:
+                    fields = m.group(1).split("|")
+                    field_map = {name: i for i, name in enumerate(fields)}
+                    return fields, field_map
+            if line.startswith("#CHROM"):
+                break
+
+    raise RuntimeError(
+        f"CSQ header (##INFO=<ID=CSQ,...>) not found in {vcf_path}. "
+        "Is the VCF annotated by VEP?"
+    )
+
+
+def get_csq_index(field_map: dict[str, int], field_name: str, required: bool = False) -> int:
+    """
+    Look up a CSQ field index by name. Returns -1 if not found and not required.
+    """
+    if field_name in field_map:
+        return field_map[field_name]
+    if required:
+        raise KeyError(
+            f"Required CSQ field '{field_name}' not found in VEP annotation. "
+            f"Available fields: {', '.join(sorted(field_map.keys()))}"
+        )
+    return -1
+
 
 # ---------------------------------------------------------
 # 1. Map tumor names found in filenames → OncoTree codes
 # ---------------------------------------------------------
+
 CANCER_MAP = {
     "brain": "CNS",
     "breast": "BRCA",
@@ -63,17 +104,16 @@ CANCER_MAP = {
 ONCOKB_BASE = "https://www.oncokb.org/api/v1"
 API_MUT_BY_PROTEIN = f"{ONCOKB_BASE}/annotate/mutations/byProteinChange"
 API_CNA = f"{ONCOKB_BASE}/annotate/copyNumberAlterations"
-
 REFERENCE_GENOME = "GRCh38"
 
 
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
+
 def load_preferred_transcripts(file_path: str | None) -> set:
     """
     Load a set of preferred NM IDs from a file, stripping version numbers.
-
     If no file is provided, return an empty set and print a warning.
     If the file does not exist or cannot be read, return an empty set and print a warning.
     This allows the script to continue and fall back to the default transcript selection logic.
@@ -127,34 +167,35 @@ def stringify_list(values) -> str:
 
 def get_cancer_from_filename(filename: str) -> str:
     base = os.path.basename(filename)
-    for part in re.split(r"[_.\-]+", base):
+    for part in re.split(r"[\_.\-]+", base):
         key = part.lower()
         if key in CANCER_MAP:
             return CANCER_MAP[key]
     return "UNKNOWN"
 
 
-def _extract_one_letter_protein(csq: str):
+def _extract_one_letter_protein(csq: str, hgvsp_index: int):
+    """
+    Extract HGVSp from a CSQ annotation string and convert 3-letter amino
+    acid codes to 1-letter codes where possible.
+    """
+    if hgvsp_index < 0:
+        return None
+
     fields = csq.split("|")
     try:
-        protein = fields[HGVSP_INDEX]
+        protein = fields[hgvsp_index]
     except IndexError:
         return None
 
     if not protein:
         return None
 
-    sys.stdout.write(f"  [DEBUG protein raw] {protein}\n")
-
-    if ":" in protein:
-        protein = protein.split(":")[-1] 
-
     if protein.startswith("p."):
         protein = protein[2:]
 
     protein = protein.replace("Ter", "*")
 
-    sys.stdout.write(f"  [DEBUG protein final] {protein}\n")
     aa3to1 = {
         "Ala": "A", "Arg": "R", "Asn": "N", "Asp": "D",
         "Cys": "C", "Gln": "Q", "Glu": "E", "Gly": "G",
@@ -164,7 +205,7 @@ def _extract_one_letter_protein(csq: str):
         "Sec": "U", "Pyl": "O",
     }
 
-    m = re.match(r"([A-Za-z*]{3})(\d+)([A-Za-z*]{3})", protein)
+    m = re.match(r"([A-Za-z\*]{3})(\d+)([A-Za-z\*]{3})", protein)
     if m:
         ref3, pos, alt3 = m.groups()
         ref1 = aa3to1.get(ref3, ref3[0])
@@ -174,9 +215,20 @@ def _extract_one_letter_protein(csq: str):
     return protein
 
 
-def find_preferred_csq_and_protein(variant, csqs: str, preferred_tx: set):
+def find_preferred_csq_and_protein(
+    variant,
+    csqs: str,
+    preferred_tx: set,
+    symbol_idx: int,
+    feature_idx: int,
+    hgvsp_idx: int,
+    mane_select_nm_idx: int,
+    mane_plus_clinical_nm_idx: int,
+    mane_status_idx: int,
+):
     """
     Finds the best CSQ annotation using a 3-tier prioritization logic.
+
     Returns: (gene, protein_change, selected_transcript, selection_reason)
     """
     if not csqs:
@@ -190,29 +242,32 @@ def find_preferred_csq_and_protein(variant, csqs: str, preferred_tx: set):
     if preferred_tx:
         for ann in annotations:
             fields = ann.split("|")
-            if len(fields) > MANE_SELECT_NM_INDEX:
-                current_nm_id_select = fields[MANE_SELECT_NM_INDEX].split(".")[0].strip()
+
+            # Check MANE_SELECT NM ID
+            if mane_select_nm_idx >= 0 and len(fields) > mane_select_nm_idx:
+                current_nm_id_select = fields[mane_select_nm_idx].split(".")[0].strip()
                 if current_nm_id_select and current_nm_id_select in preferred_tx:
                     selected_annotation = ann
                     selection_reason = "Preferred List Match (NM/MANE Select)"
                     break
 
-            if selected_annotation is None and len(fields) > MANE_PLUS_CLINICAL_NM_INDEX:
-                current_nm_id_plus = fields[MANE_PLUS_CLINICAL_NM_INDEX].split(".")[0].strip()
+            # Check MANE_PLUS_CLINICAL NM ID
+            if (
+                selected_annotation is None
+                and mane_plus_clinical_nm_idx >= 0
+                and len(fields) > mane_plus_clinical_nm_idx
+            ):
+                current_nm_id_plus = fields[mane_plus_clinical_nm_idx].split(".")[0].strip()
                 if current_nm_id_plus and current_nm_id_plus in preferred_tx:
                     selected_annotation = ann
                     selection_reason = "Preferred List Match (NM/MANE Plus Clinical)"
                     break
 
     # --- TIER 2: MANE TRANSCRIPTS ---
-    if (
-        selected_annotation is None
-        and len(annotations) > 0
-        and len(annotations[0].split("|")) >= MIN_FIELDS_FOR_MANE_STATUS
-    ):
+    if selected_annotation is None and mane_status_idx >= 0:
         for ann in annotations:
             fields = ann.split("|")
-            if len(fields) > MANE_STATUS_INDEX and fields[MANE_STATUS_INDEX] == "MANE Select":
+            if len(fields) > mane_status_idx and fields[mane_status_idx] == "MANE Select":
                 selected_annotation = ann
                 selection_reason = "MANE Select"
                 break
@@ -221,8 +276,8 @@ def find_preferred_csq_and_protein(variant, csqs: str, preferred_tx: set):
             for ann in annotations:
                 fields = ann.split("|")
                 if (
-                    len(fields) > MANE_STATUS_INDEX
-                    and fields[MANE_STATUS_INDEX].startswith("MANE Plus Clinical")
+                    len(fields) > mane_status_idx
+                    and fields[mane_status_idx].startswith("MANE Plus Clinical")
                 ):
                     selected_annotation = ann
                     selection_reason = "MANE Plus Clinical"
@@ -238,9 +293,10 @@ def find_preferred_csq_and_protein(variant, csqs: str, preferred_tx: set):
         return None, None, None, selection_reason
 
     fields = selected_annotation.split("|")
-    gene = fields[SYMBOL_INDEX] if len(fields) > SYMBOL_INDEX else None
-    selected_transcript = fields[FEATURE_INDEX] if len(fields) > FEATURE_INDEX else "N/A"
-    protein_change = _extract_one_letter_protein(selected_annotation)
+    gene = fields[symbol_idx] if len(fields) > symbol_idx else None
+    selected_transcript = fields[feature_idx] if len(fields) > feature_idx else "N/A"
+
+    protein_change = _extract_one_letter_protein(selected_annotation, hgvsp_idx)
 
     alt_string = ",".join(map(str, variant.ALT)) if variant.ALT else "."
     sys.stdout.write(
@@ -254,6 +310,7 @@ def find_preferred_csq_and_protein(variant, csqs: str, preferred_tx: set):
 # ---------------------------------------------------------
 # OncoKB queries
 # ---------------------------------------------------------
+
 def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: str, cache: dict):
     if not gene or not alteration:
         return None
@@ -266,14 +323,8 @@ def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: st
         "referenceGenome": REFERENCE_GENOME,
         "hugoSymbol": gene,
         "alteration": alteration,
+        "tumorType": tumor_type,
     }
-
-    if tumor_type and tumor_type.upper() != "UNKNOWN":
-        params["tumorType"] = tumor_type
-
-    prepared = requests.Request("GET", API_MUT_BY_PROTEIN, params=params).prepare()
-    sys.stdout.write(f"  [OncoKB URL] {prepared.url}\n")
-
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
 
     resp = requests.get(API_MUT_BY_PROTEIN, params=params, headers=headers, timeout=15)
@@ -333,6 +384,7 @@ def query_oncokb_cna(gene: str, cna_type: str, tumor_type: str, token: str, cach
 # ---------------------------------------------------------
 # Flatten OncoKB JSON
 # ---------------------------------------------------------
+
 def summarize_oncokb(data: dict) -> dict:
     if not data:
         return {}
@@ -349,7 +401,6 @@ def summarize_oncokb(data: dict) -> dict:
     out["gene_exist"] = clean_value(data.get("geneExist"))
     out["variant_exist"] = clean_value(data.get("variantExist"))
     out["allele_exist"] = clean_value(data.get("alleleExist"))
-
     out["oncogenic"] = clean_value(data.get("oncogenic"))
     out["hotspot"] = clean_value(data.get("hotspot"))
     out["vus"] = clean_value(data.get("VUS"))
@@ -358,7 +409,6 @@ def summarize_oncokb(data: dict) -> dict:
     me = data.get("mutationEffect") or {}
     out["effect_known"] = clean_value(me.get("knownEffect"))
     out["effect_desc"] = clean_value(me.get("description"))
-
     citations = me.get("citations") or {}
     out["pmids"] = stringify_list(citations.get("pmids") or [])
     out["abstracts"] = stringify_list(citations.get("abstracts") or [])
@@ -368,7 +418,6 @@ def summarize_oncokb(data: dict) -> dict:
     out["diag_level"] = clean_value(data.get("highestDiagnosticImplicationLevel"))
     out["prog_level"] = clean_value(data.get("highestPrognosticImplicationLevel"))
     out["fda_level"] = clean_value(data.get("highestFdaLevel"))
-
     out["other_sensitive_levels"] = stringify_list(data.get("otherSignificantSensitiveLevels") or [])
     out["other_resistance_levels"] = stringify_list(data.get("otherSignificantResistanceLevels") or [])
 
@@ -381,7 +430,6 @@ def summarize_oncokb(data: dict) -> dict:
     diagnostic_implications = data.get("diagnosticImplications") or []
     prognostic_implications = data.get("prognosticImplications") or []
     treatments = data.get("treatments") or []
-
     out["diagnostic_implications"] = clean_value(json.dumps(diagnostic_implications, separators=(",", ":")))
     out["prognostic_implications"] = clean_value(json.dumps(prognostic_implications, separators=(",", ":")))
     out["treatments"] = clean_value(json.dumps(treatments, separators=(",", ":")))
@@ -396,16 +444,16 @@ def summarize_oncokb(data: dict) -> dict:
 # ---------------------------------------------------------
 # Classify variant type
 # ---------------------------------------------------------
+
 def classify_variant(variant) -> str | None:
     """
     Classifies variant based on INFO['SVTYPE'] or ID column (Column 3).
     Returns:
-        "cnv": For MantaDUP, MantaDEL (Copy Number Alterations).
-        "snv": For SNVs, INDELs, MantaINS, MantaBND (treated as mutations to check for protein change).
+      "cnv": For MantaDUP, MantaDEL (Copy Number Alterations).
+      "snv": For SNVs, INDELs, MantaINS, MantaBND (treated as mutations).
     """
     svtype = variant.INFO.get("SVTYPE")
     variant_id = variant.ID if variant.ID else ""
-
     sv_class = "snv"
 
     if svtype:
@@ -424,9 +472,7 @@ def classify_variant(variant) -> str | None:
 
 
 def map_svtype_to_cna(svtype: str, variant_id: str) -> str | None:
-    """
-    Map SVTYPE or ID → OncoKB copyNameAlterationType.
-    """
+    """Map SVTYPE or ID → OncoKB copyNameAlterationType."""
     if variant_id:
         if "MantaDUP" in variant_id:
             return "AMPLIFICATION"
@@ -435,19 +481,18 @@ def map_svtype_to_cna(svtype: str, variant_id: str) -> str | None:
 
     if not svtype:
         return None
-
     sv = svtype.upper()
     if sv in {"DUP", "GAIN"}:
         return "AMPLIFICATION"
     if sv in {"DEL", "LOSS"}:
         return "DELETION"
-
     return None
 
 
 # ---------------------------------------------------------
 # MAIN FUNCTION — Annotate VCF
 # ---------------------------------------------------------
+
 def annotate_vcf(
     input_vcf: str,
     output_vcf: str,
@@ -477,7 +522,24 @@ def annotate_vcf(
     if preferred_transcripts:
         print(f"✔ Using {len(preferred_transcripts)} preferred NM transcripts (version agnostic).")
     else:
-        print("⚠️ No preferred transcripts loaded. Falling back to MANE/VEP default transcript selection.")
+        print("⚠️  No preferred transcripts loaded. Falling back to MANE/VEP default transcript selection.")
+
+    # --- Dynamically parse CSQ field positions from the VCF header ---
+    _csq_fields, _csq_map = parse_csq_format(input_vcf)
+
+    SYMBOL_IDX                = get_csq_index(_csq_map, "SYMBOL", required=True)
+    FEATURE_IDX               = get_csq_index(_csq_map, "Feature", required=True)
+    HGVSP_IDX                 = get_csq_index(_csq_map, "HGVSp", required=True)
+    MANE_SELECT_NM_IDX        = get_csq_index(_csq_map, "MANE_SELECT")
+    MANE_PLUS_CLINICAL_NM_IDX = get_csq_index(_csq_map, "MANE_PLUS_CLINICAL")
+    MANE_STATUS_IDX           = get_csq_index(_csq_map, "MANE")
+
+    print(f"✔ Parsed {len(_csq_fields)} CSQ fields from VCF header")
+    print(
+        f"  SYMBOL={SYMBOL_IDX}, Feature={FEATURE_IDX}, HGVSp={HGVSP_IDX}, "
+        f"MANE_SELECT={MANE_SELECT_NM_IDX}, MANE_PLUS_CLINICAL={MANE_PLUS_CLINICAL_NM_IDX}, "
+        f"MANE={MANE_STATUS_IDX}"
+    )
 
     vcf = VCF(input_vcf)
 
@@ -487,7 +549,6 @@ def annotate_vcf(
         "ONCOKB_QUERY_ENTREZ_GENE_ID": "OncoKB query.entrezGeneId",
         "ONCOKB_QUERY_ALTERATION": "OncoKB query.alteration",
         "ONCOKB_QUERY_TUMOR_TYPE": "OncoKB query.tumorType",
-
         "ONCOKB_ONCOGENIC": "OncoKB oncogenic classification",
         "ONCOKB_HOTSPOT": "OncoKB hotspot flag",
         "ONCOKB_EFFECT": "OncoKB mutationEffect.knownEffect",
@@ -499,31 +560,26 @@ def annotate_vcf(
         "ONCOKB_FDA_LVL": "OncoKB highestFdaLevel",
         "ONCOKB_OTHER_SENS_LVLS": "OncoKB otherSignificantSensitiveLevels",
         "ONCOKB_OTHER_RESIST_LVLS": "OncoKB otherSignificantResistanceLevels",
-
         "ONCOKB_TREATMENTS": "OncoKB treatments JSON",
         "ONCOKB_GENE_SUMMARY": "OncoKB geneSummary",
         "ONCOKB_VARIANT_SUMMARY": "OncoKB variantSummary",
         "ONCOKB_TUMOR_TYPE_SUMMARY": "OncoKB tumorTypeSummary",
         "ONCOKB_DIAG_SUMMARY": "OncoKB diagnosticSummary",
         "ONCOKB_PROG_SUMMARY": "OncoKB prognosticSummary",
-
         "ONCOKB_VUS": "OncoKB VUS classification",
         "ONCOKB_GENE_EXIST": "OncoKB geneExist",
         "ONCOKB_VARIANT_EXIST": "OncoKB variantExist",
         "ONCOKB_ALLELE_EXIST": "OncoKB alleleExist",
         "ONCOKB_EXON": "OncoKB exon",
-
         "ONCOKB_PMIDS": "OncoKB mutationEffect citations pmids",
         "ONCOKB_ABSTRACTS": "OncoKB mutationEffect citations abstracts",
         "ONCOKB_DIAGNOSTIC_IMPLICATIONS": "OncoKB diagnosticImplications JSON",
         "ONCOKB_PROGNOSTIC_IMPLICATIONS": "OncoKB prognosticImplications JSON",
-
         "ONCOKB_DATA_VERSION": "OncoKB data version",
         "ONCOKB_LAST_UPDATE": "OncoKB last update date",
         "ONCOKB_JSON": "Raw OncoKB JSON",
         "ONCOKB_QUERY_TYPE": "OncoKB query type: MUTATION or CNA",
     }
-
     for key, desc in fields_to_add.items():
         vcf.add_info_to_header({"ID": key, "Description": desc, "Type": "String", "Number": "1"})
 
@@ -537,9 +593,7 @@ def annotate_vcf(
 
     for variant in vcf:
         total_variants += 1
-
         v_class = classify_variant(variant)
-
         csqs = variant.INFO.get("CSQ")
         gene = None
         protein_change = None
@@ -547,7 +601,13 @@ def annotate_vcf(
 
         if v_class == "snv":
             gene, protein_change, selected_transcript, selection_reason = find_preferred_csq_and_protein(
-                variant, str(csqs), preferred_transcripts
+                variant, str(csqs), preferred_transcripts,
+                symbol_idx=SYMBOL_IDX,
+                feature_idx=FEATURE_IDX,
+                hgvsp_idx=HGVSP_IDX,
+                mane_select_nm_idx=MANE_SELECT_NM_IDX,
+                mane_plus_clinical_nm_idx=MANE_PLUS_CLINICAL_NM_IDX,
+                mane_status_idx=MANE_STATUS_IDX,
             )
 
             if not gene or not protein_change:
@@ -556,15 +616,14 @@ def annotate_vcf(
 
             data = query_oncokb_mutation(gene, protein_change, tumor_type, token, mut_cache)
             summary = summarize_oncokb(data)
-
             if data:
                 annotated_mut += 1
-                variant.INFO["ONCOKB_QUERY_TYPE"] = "MUTATION"
+            variant.INFO["ONCOKB_QUERY_TYPE"] = "MUTATION"
 
         elif v_class == "cnv":
             if csqs:
                 fields = str(csqs).split(",")[0].split("|")
-                gene = fields[SYMBOL_INDEX] if len(fields) > SYMBOL_INDEX else None
+                gene = fields[SYMBOL_IDX] if len(fields) > SYMBOL_IDX else None
 
             svtype = variant.INFO.get("SVTYPE")
             variant_id = variant.ID if variant.ID else ""
@@ -576,10 +635,9 @@ def annotate_vcf(
 
             data = query_oncokb_cna(gene, cna_type, tumor_type, token, cna_cache)
             summary = summarize_oncokb(data)
-
             if data:
                 annotated_cna += 1
-                variant.INFO["ONCOKB_QUERY_TYPE"] = "CNA"
+            variant.INFO["ONCOKB_QUERY_TYPE"] = "CNA"
 
         else:
             writer.write_record(variant)
@@ -591,7 +649,6 @@ def annotate_vcf(
             "query_entrez_gene_id": "ONCOKB_QUERY_ENTREZ_GENE_ID",
             "query_alteration": "ONCOKB_QUERY_ALTERATION",
             "query_tumor_type": "ONCOKB_QUERY_TUMOR_TYPE",
-
             "oncogenic": "ONCOKB_ONCOGENIC",
             "hotspot": "ONCOKB_HOTSPOT",
             "vus": "ONCOKB_VUS",
@@ -599,15 +656,12 @@ def annotate_vcf(
             "variant_exist": "ONCOKB_VARIANT_EXIST",
             "allele_exist": "ONCOKB_ALLELE_EXIST",
             "exon": "ONCOKB_EXON",
-
             "dataVersion": "ONCOKB_DATA_VERSION",
             "lastUpdate": "ONCOKB_LAST_UPDATE",
-
             "effect_known": "ONCOKB_EFFECT",
             "effect_desc": "ONCOKB_EFFECT_DESC",
             "pmids": "ONCOKB_PMIDS",
             "abstracts": "ONCOKB_ABSTRACTS",
-
             "sens_level": "ONCOKB_SENS_LVL",
             "resist_level": "ONCOKB_RESIST_LVL",
             "diag_level": "ONCOKB_DIAG_LVL",
@@ -615,13 +669,11 @@ def annotate_vcf(
             "fda_level": "ONCOKB_FDA_LVL",
             "other_sensitive_levels": "ONCOKB_OTHER_SENS_LVLS",
             "other_resistance_levels": "ONCOKB_OTHER_RESIST_LVLS",
-
             "gene_summary": "ONCOKB_GENE_SUMMARY",
             "variant_summary": "ONCOKB_VARIANT_SUMMARY",
             "tumor_type_summary": "ONCOKB_TUMOR_TYPE_SUMMARY",
             "diagnostic_summary": "ONCOKB_DIAG_SUMMARY",
             "prognostic_summary": "ONCOKB_PROG_SUMMARY",
-
             "diagnostic_implications": "ONCOKB_DIAGNOSTIC_IMPLICATIONS",
             "prognostic_implications": "ONCOKB_PROGNOSTIC_IMPLICATIONS",
             "treatments": "ONCOKB_TREATMENTS",
@@ -637,11 +689,11 @@ def annotate_vcf(
     writer.close()
 
     print("\n📊 OncoKB Annotation Summary:")
-    print(f"   Total variants processed:    {total_variants}")
-    print(f"   Mutations annotated:         {annotated_mut}")
-    print(f"   CNVs annotated:              {annotated_cna}")
+    print(f"  Total variants processed: {total_variants}")
+    print(f"  Mutations annotated:      {annotated_mut}")
+    print(f"  CNVs annotated:           {annotated_cna}")
     if total_variants:
-        print(f"   Overall annotation rate:     {(annotated_mut + annotated_cna) / total_variants * 100:.2f}%")
+        print(f"  Overall annotation rate:  {(annotated_mut + annotated_cna) / total_variants * 100:.2f}%")
     print(f"\n✔ OncoKB-annotated VCF written to: {output_vcf}")
 
 
@@ -668,7 +720,6 @@ if __name__ == "__main__":
             "If not provided, the script will warn and continue without transcript prioritization."
         ),
     )
-
     args = parser.parse_args()
 
     annotate_vcf(

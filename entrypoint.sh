@@ -125,6 +125,12 @@ done
 echo "============================================================"
 echo "SMART — Somatic Mutation Annotation and Reporting Tool"
 echo "============================================================"
+echo "Tool versions:"
+echo "  VEP:              $(vep --help 2>&1 | grep -oP 'ensembl-vep\s*:\s*\K\S+' || echo 'unknown')"
+echo "  GATK:             $(gatk --version 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1 || echo 'unknown')"
+echo "  bcftools:          $(bcftools --version | head -1 || echo 'unknown')"
+echo "  Python:            $(python3 --version 2>&1 || echo 'unknown')"
+echo ""
 echo "Config:"
 echo "  PASS filter:      $([[ $DO_PASS_FILTER -eq 1 ]] && echo ENABLED || echo DISABLED)"
 echo "  Liftover:         $([[ $DO_LIFTOVER -eq 1 ]] && echo ENABLED || echo DISABLED)"
@@ -287,8 +293,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 done
 
 echo "###################### Post Analysis ##########################################"
-python3 "$SCRIPT_DIR/post_analysis.py" \
-  --config /config/Config.yaml
+python3 "$SCRIPT_DIR/post_analysis.py"
 
 if [[ $CLEAN_TABLES -eq 1 ]]; then
     echo ">>> Cleaning table files after post_analysis"

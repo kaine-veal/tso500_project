@@ -150,8 +150,6 @@ git clone https://github.com/kaine-veal/tso500_project.git
 cd tso500_project
 
 # Create the Docker build context
-mkdir -p docker/scripts
-cp oncokb2.0.py vcf2table.py post_analysis.py docker/scripts/
 cp Dockerfile docker-compose.yml entrypoint.sh requirements.txt .dockerignore docker/
 ```
 
