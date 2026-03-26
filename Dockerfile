@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jre-headless \
     python3 \
     python3-pip \
+    python-is-python3 \
     perl \
     cpanminus \
     libdbi-perl \
@@ -48,6 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblzma-dev \
     git \
     unzip \
+    liblist-moreutils-perl \
+    libbio-db-hts-perl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
