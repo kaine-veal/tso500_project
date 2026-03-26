@@ -94,6 +94,7 @@ import os
 import fnmatch
 import yaml
 import pandas as pd
+import argparse
 
 
 COLS_TO_REMOVE = []
@@ -519,8 +520,12 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
 # === Entry point ===
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="Path to Config.yaml")
+    args = parser.parse_args()
+
     merge_maf_files(
         input_dir="./FINAL_Table/",
         output_dir="./output/",
-        yaml_config="/mnt/data1/vep_sample_test/manuel/DoItAll/create_config/Config.yaml"
+        yaml_config=args.config
     )
