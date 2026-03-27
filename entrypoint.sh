@@ -14,12 +14,13 @@ SMART — Somatic Mutation Annotation and Reporting Tool (Dockerised)
 
 Usage:
   docker run -v /path/to/data:/data -v /path/to/refs:/refs smart \\
-    <ONCOKB_TOKEN> --transcripts-file FILE --ref-dir /refs [OPTIONS]
+    <ONCOKB_TOKEN> --transcripts-file FILE --ref-dir /refs --config FILE [OPTIONS]
 
 Required:
   <ONCOKB_TOKEN>           OncoKB API token
   --transcripts-file FILE  Transcript list for prioritisation
   --ref-dir DIR            Reference resources directory (mounted at /refs)
+  --config FILE            YAML config file for post_analysis (Config.yaml)
 
   The ref-dir should contain:
     DIR/liftover/hg19ToHg38.over.chain
@@ -51,7 +52,8 @@ Examples:
     smart \\
     "\$ONCOKB_TOKEN" \\
     --transcripts-file /data/TSO500_transcripts_list.txt \\
-    --ref-dir /refs
+    --ref-dir /refs \\
+    --config /data/Config.yaml
 
 EOF
 }
@@ -71,6 +73,7 @@ CLEAN_TMP=1
 CLEAN_TABLES=1
 TRANSCRIPTS_FILE=""
 REF_DIR=""
+CONFIG_FILE=""
 
 # Parse flags
 while [[ $# -gt 0 ]]; do
@@ -89,6 +92,9 @@ while [[ $# -gt 0 ]]; do
         --ref-dir)
             [[ $# -lt 2 ]] && { echo "ERROR: --ref-dir requires a path"; exit 2; }
             REF_DIR="$2"; shift 2 ;;
+        --config)
+            [[ $# -lt 2 ]] && { echo "ERROR: --config requires a path"; exit 2; }
+            CONFIG_FILE="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; usage; exit 2 ;;
     esac
 done
@@ -98,6 +104,8 @@ done
 [[ ! -f "$TRANSCRIPTS_FILE" ]] && { echo "ERROR: Transcript file not found: $TRANSCRIPTS_FILE"; exit 2; }
 [[ -z "$REF_DIR" ]] && { echo "ERROR: --ref-dir is required"; usage; exit 2; }
 [[ ! -d "$REF_DIR" ]] && { echo "ERROR: Reference directory not found: $REF_DIR"; exit 2; }
+[[ -z "$CONFIG_FILE" ]] && { echo "ERROR: --config is required"; usage; exit 2; }
+[[ ! -f "$CONFIG_FILE" ]] && { echo "ERROR: Config file not found: $CONFIG_FILE"; exit 2; }
 
 # Reference files
 CHAIN="$REF_DIR/liftover/hg19ToHg38.over.chain"
@@ -137,6 +145,7 @@ echo "  Liftover:         $([[ $DO_LIFTOVER -eq 1 ]] && echo ENABLED || echo DIS
 echo "  Clean tmp:        $([[ $CLEAN_TMP -eq 1 ]] && echo ENABLED || echo DISABLED)"
 echo "  Clean tables:     $([[ $CLEAN_TABLES -eq 1 ]] && echo ENABLED || echo DISABLED)"
 echo "  Transcript file:  $TRANSCRIPTS_FILE"
+echo "  Config file:      $CONFIG_FILE"
 echo "  Reference dir:    $REF_DIR"
 echo "============================================================"
 echo
@@ -293,7 +302,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 done
 
 echo "###################### Post Analysis ##########################################"
-python3 "$SCRIPT_DIR/post_analysis.py"
+python3 "$SCRIPT_DIR/post_analysis.py" --config "$CONFIG_FILE"
 
 if [[ $CLEAN_TABLES -eq 1 ]]; then
     echo ">>> Cleaning table files after post_analysis"

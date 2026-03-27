@@ -2,12 +2,17 @@
 # SMART — Somatic Mutation Annotation and Reporting Tool
 # ==============================================================================
 # Multi-stage build:
-#   Stage 1: VEP installation with plugins
-#   Stage 2: Final image with all tools combined
+#   Stage 1: Pull VEP image
+#   Stage 2: Pull GATK image
+#   Stage 3: Final image with all tools combined
 # ==============================================================================
 
 ARG VEP_VERSION=114.0
+ARG GATK_VERSION=4.6.0.0
+
 FROM ensemblorg/ensembl-vep:release_${VEP_VERSION} AS vep-base
+
+FROM broadinstitute/gatk:${GATK_VERSION} AS gatk-base
 
 # ==============================================================================
 # Final stage: combine everything into one image
@@ -15,9 +20,11 @@ FROM ensemblorg/ensembl-vep:release_${VEP_VERSION} AS vep-base
 FROM ubuntu:22.04
 
 ARG VEP_VERSION=114.0
+ARG GATK_VERSION=4.6.0.0
 LABEL maintainer="SMART Pipeline Team"
 LABEL description="SMART — Somatic Mutation Annotation and Reporting Tool"
 LABEL smart.vep.version="${VEP_VERSION}"
+LABEL smart.gatk.version="${GATK_VERSION}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
@@ -30,12 +37,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gzip \
     bzip2 \
     tabix \
-    bgzip \
     bcftools \
     samtools \
     openjdk-17-jre-headless \
     python3 \
     python3-pip \
+    python-is-python3 \
     perl \
     cpanminus \
     libdbi-perl \
@@ -47,33 +54,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libbio-perl-perl \
     libtry-tiny-perl \
     libset-intervaltree-perl \
+    liblist-moreutils-perl \
+    libbio-db-hts-perl \
     zlib1g-dev \
     libbz2-dev \
     liblzma-dev \
-    libcurl4-openssl-dev \
-    libhts-dev \
     git \
     unzip \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------- GATK ----------
-ARG GATK_VERSION=4.6.0.0
-ENV GATK_VERSION=${GATK_VERSION}
-LABEL smart.gatk.version="${GATK_VERSION}"
-RUN mkdir -p /opt/gatk && \
-    wget -q "https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip" \
-         -O /tmp/gatk.zip && \
-    unzip -q /tmp/gatk.zip -d /opt/ && \
-    mv /opt/gatk-${GATK_VERSION}/* /opt/gatk/ && \
-    rm -rf /tmp/gatk.zip /opt/gatk-${GATK_VERSION} && \
-    chmod +x /opt/gatk/gatk
+# ---------- GATK (copy from gatk-base stage) ----------
+COPY --from=gatk-base /gatk /opt/gatk
 ENV PATH="/opt/gatk:${PATH}"
 
 # ---------- VEP (copy from vep-base stage) ----------
 COPY --from=vep-base /opt/vep /opt/vep
 ENV PATH="/opt/vep/src/ensembl-vep:${PATH}"
-ENV PERL5LIB="/opt/vep/src/ensembl-vep:/opt/vep/src/ensembl-vep/modules:${PERL5LIB:-}"
+ENV PERL5LIB=/opt/vep/src/ensembl-vep:/opt/vep/src/ensembl-vep/modules
 
 # ---------- Python dependencies ----------
 COPY requirements.txt /tmp/requirements.txt
