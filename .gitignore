@@ -10,6 +10,8 @@
 *.fastq.*
 *.bam.*
 *.cram.*
+*.vcf.gz*
+*vcf*
 
 
 # NHS files
