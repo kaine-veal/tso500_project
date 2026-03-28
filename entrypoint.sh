@@ -78,24 +78,63 @@ CONFIG_FILE=""
 # Parse flags
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-pass)        DO_PASS_FILTER=0; shift ;;
-        --pass)           DO_PASS_FILTER=1; shift ;;
-        --no-liftover)    DO_LIFTOVER=0;    shift ;;
-        --liftover)       DO_LIFTOVER=1;    shift ;;
-        --clean-tmp)      CLEAN_TMP=1;      shift ;;
-        --keep-tmp)       CLEAN_TMP=0;      shift ;;
-        --clean-tables)   CLEAN_TABLES=1;   shift ;;
-        --keep-tables)    CLEAN_TABLES=0;   shift ;;
+        --no-pass)
+            DO_PASS_FILTER=0
+            shift
+            ;;
+        --pass)
+            DO_PASS_FILTER=1
+            shift
+            ;;
+        --no-liftover)
+            DO_LIFTOVER=0
+            shift
+            ;;
+        --liftover)
+            DO_LIFTOVER=1
+            shift
+            ;;
+        --clean-tmp)
+            CLEAN_TMP=1
+            shift
+            ;;
+        --keep-tmp)
+            CLEAN_TMP=0
+            shift
+            ;;
+        --clean-tables)
+            CLEAN_TABLES=1
+            shift
+            ;;
+        --keep-tables)
+            CLEAN_TABLES=0
+            shift
+            ;;
+        --input-dir)
+            [[ $# -lt 2 ]] && { echo "ERROR: --input-dir requires a path"; exit 2; }
+            INPUT_DIR="$2"
+            shift 2
+            ;;
         --transcripts-file)
             [[ $# -lt 2 ]] && { echo "ERROR: --transcripts-file requires a path"; exit 2; }
-            TRANSCRIPTS_FILE="$2"; shift 2 ;;
+            TRANSCRIPTS_FILE="$2"
+            shift 2
+            ;;
         --ref-dir)
             [[ $# -lt 2 ]] && { echo "ERROR: --ref-dir requires a path"; exit 2; }
-            REF_DIR="$2"; shift 2 ;;
+            REF_DIR="$2"
+            shift 2
+            ;;
         --config)
             [[ $# -lt 2 ]] && { echo "ERROR: --config requires a path"; exit 2; }
-            CONFIG_FILE="$2"; shift 2 ;;
-        *) echo "Unknown option: $1"; usage; exit 2 ;;
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            exit 2
+            ;;
     esac
 done
 
@@ -106,8 +145,11 @@ done
 [[ ! -d "$REF_DIR" ]] && { echo "ERROR: Reference directory not found: $REF_DIR"; exit 2; }
 [[ -z "$CONFIG_FILE" ]] && { echo "ERROR: --config is required"; usage; exit 2; }
 [[ ! -f "$CONFIG_FILE" ]] && { echo "ERROR: Config file not found: $CONFIG_FILE"; exit 2; }
+[[ ! -d "$INPUT_DIR" ]] && { echo "ERROR: Input directory not found: $INPUT_DIR"; exit 2; }
 
 # Reference files
+# You may have problems with the filename of ref files
+# as org. change them frecuenly (e.g., new versions)
 CHAIN="$REF_DIR/liftover/hg19ToHg38.over.chain"
 REF="$REF_DIR/liftover/hg38.fa"
 VEP_DIR="$REF_DIR"
@@ -130,14 +172,34 @@ for path in "${REQUIRED_PATHS[@]}"; do
     [[ ! -e "$path" ]] && { echo "ERROR: Required resource not found: $path"; exit 2; }
 done
 
+ONCOKB_INFO=$(curl -s https://www.oncokb.org/api/v1/info || echo "")
+ONCOKB_DATA_VERSION=$(echo "$ONCOKB_INFO" | grep -oP '"dataVersion":\{"version":"\K[^"]+' || echo "unknown")
+ONCOKB_DATA_DATE=$(echo "$ONCOKB_INFO" | grep -oP '"dataVersion":\{"version":"[^"]+","date":"\K[^"]+' || echo "unknown")
+ONCOKB_API_VERSION=$(echo "$ONCOKB_INFO" | grep -oP '"apiVersion":\{"version":"\K[^"]+' || echo "unknown")
+
 echo "============================================================"
 echo "SMART — Somatic Mutation Annotation and Reporting Tool"
 echo "============================================================"
 echo "Tool versions:"
-echo "  VEP:              $(vep --help 2>&1 | grep -oP 'ensembl-vep\s*:\s*\K\S+' || echo 'unknown')"
-echo "  GATK:             $(gatk --version 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1 || echo 'unknown')"
+echo "  VEP:               $(vep --help 2>&1 | grep -oP 'ensembl-vep\s*:\s*\K\S+' || echo 'unknown')"
+echo "  GATK:              $(gatk --version 2>&1 | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1 || echo 'unknown')"
 echo "  bcftools:          $(bcftools --version | head -1 || echo 'unknown')"
 echo "  Python:            $(python3 --version 2>&1 || echo 'unknown')"
+echo "  OncoKB API:        $ONCOKB_API_VERSION"
+echo ""
+
+echo "Reference versions:"
+echo "  ClinVar:           $(basename "$CLINVAR_VCF")"
+echo "  CIViC:             $(basename "$CIVIC_VCF")"
+echo "  CancerHotSpots:    $(basename "$CANCER_HOTSPOTS_VCF")"
+echo "  SpliceAI SNV:      $(basename "$SPLICEAI_SNV")"
+echo "  SpliceAI INDEL:    $(basename "$SPLICEAI_INDEL")"
+echo "  REVEL:             $(basename "$REVEL_FILE")"
+echo "  LOEUF:             $(basename "$LOEUF_FILE")"
+echo "  OncoKB data:       $ONCOKB_DATA_VERSION ($ONCOKB_DATA_DATE)"
+
+echo ""
+
 echo ""
 echo "Config:"
 echo "  PASS filter:      $([[ $DO_PASS_FILTER -eq 1 ]] && echo ENABLED || echo DISABLED)"
@@ -147,13 +209,14 @@ echo "  Clean tables:     $([[ $CLEAN_TABLES -eq 1 ]] && echo ENABLED || echo DI
 echo "  Transcript file:  $TRANSCRIPTS_FILE"
 echo "  Config file:      $CONFIG_FILE"
 echo "  Reference dir:    $REF_DIR"
+echo "  Input dir:        $INPUT_DIR"
 echo "============================================================"
 echo
 
 SCRIPT_DIR="/opt/smart/scripts"
 
 # Create output directories
-INPUT_DIR="./OriginalVcf"
+INPUT_DIR="${INPUT_DIR:-./OriginalVcf}"
 FILTERED_DIR="./FilteredVcf"
 OUTPUT_DIR="./LiftOverVcf"
 REJECT_DIR="./LiftOverVcf/Rejected"
@@ -176,6 +239,29 @@ echo "Cleanup complete."
 
 COUNT_FILE="./variant_counts.txt"
 echo -e "Sample\tOriginal_Variants\tPASS_Variants\tLifted_Variants\tVEP_Annotated_Variants\tOncoKB_Annotated_Variants\tVariantsInTable" > "$COUNT_FILE"
+
+echo "------------------------------------------------------------"
+echo "Input VCF directory: $INPUT_DIR"
+
+# Count VCF files
+VCF_COUNT=$(find "$INPUT_DIR" -maxdepth 1 -name "*.vcf.gz" | wc -l)
+echo "Number of VCF files found: $VCF_COUNT"
+
+# Optional: list them (useful for debugging)
+if [[ $VCF_COUNT -gt 0 ]]; then
+    echo "VCF files:"
+    find "$INPUT_DIR" -maxdepth 1 -name "*.vcf.gz"
+else
+    echo "WARNING: No VCF files found in $INPUT_DIR"
+fi
+
+echo "------------------------------------------------------------"
+
+# Optional hard stop if no files
+if [[ $VCF_COUNT -eq 0 ]]; then
+    echo "ERROR: No input VCFs detected. Exiting."
+    exit 1
+fi
 
 for vcf in "$INPUT_DIR"/*.vcf.gz; do
     [[ -e "$vcf" ]] || continue

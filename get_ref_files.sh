@@ -117,7 +117,7 @@ GATK="apptainer exec --fakeroot \
 VEP="apptainer exec --fakeroot \
     --bind ${BASE_DIR}:${BASE_DIR} \
     --bind $(pwd):$(pwd) \
-    docker://ensemblorg/ensembl-vep"
+    docker://ensemblorg/ensembl-vep:release_114.0"
 
 
 # -------------------------
@@ -419,7 +419,8 @@ else
     -y GRCh38 \
     -c "${REF_ROOT}" \
     --NO_HTSLIB \
-    --NO_TEST
+    --NO_TEST \
+    --CACHE_VERSION 114
 echo "[OK] VEP cache installed: $VEP_CACHE_DIR"
 fi
 
@@ -546,8 +547,8 @@ echo "==========================================================================
 
 ###############################################################################
 # SpliceAI Download Script (HPC)
-#
-# This script:
+# This is what I did in case this helps
+# Following commands do:
 #   1. Installs BaseSpace CLI
 #   2. Authenticates (interactive)
 #   3. Lists project and dataset
@@ -639,6 +640,7 @@ echo "==========================================================================
 #     echo "To monitor progress:"
 #     echo "  tmux attach -t ${TMUX_SESSION}"
 # fi
+# Dont forget to tabix them! tabix -p vcf
 
 # ###############################################################################
 # # END

@@ -11,7 +11,7 @@
 *.bam.*
 *.cram.*
 *.vcf.gz*
-*vcf*
+*vcf
 
 
 # NHS files
