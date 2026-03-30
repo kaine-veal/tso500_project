@@ -28,11 +28,14 @@ set -euo pipefail
 # CONFIGURATION — edit these variables to match your environment
 # ==============================================================================
 
-# Base install directory (defaults to the running user's home directory)
-BASE_DIR="${HOME}"
+# Directory where this script lives (used to locate companion scripts)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Base install directory — external SSD
+BASE_DIR="l"
 
 # Where reference files will be stored
-REF_ROOT="${BASE_DIR}/ref_files"
+REF_ROOT="${BASE_DIR}/refs"
 
 # SpliceAI files must be manually downloaded from BaseSpace and placed here
 # before running this script (BaseSpace requires an Illumina login)
@@ -70,7 +73,7 @@ echo "==========================================================================
 
 echo ""
 echo "[PREFLIGHT] Checking available disk space on ${BASE_DIR}..."
-AVAIL_GB=$(df -BG "${BASE_DIR}" | awk 'NR==2 {gsub("G",""); print $4}')
+AVAIL_GB=$(df -k "${BASE_DIR}" | awk 'NR==2 {printf "%d", $4/1048576}')
 echo "[PREFLIGHT] Available: ${AVAIL_GB} GB  |  Required: ${MIN_DISK_GB} GB"
 
 if (( AVAIL_GB < MIN_DISK_GB )); then
@@ -89,35 +92,18 @@ echo "[PREFLIGHT] Disk space OK."
 echo ""
 echo "[INIT] Setting container wrappers"
 
-# In the Uni Server we have 
-module load apptainer
+# macOS: using Docker (no apptainer/module system available)
+SAMTOOLS_IMG="quay.io/biocontainers/samtools:1.20--h50ea8bc_0"
+GATK_IMG="broadinstitute/gatk:4.6.0.0"
+VEP_IMG="ensemblorg/ensembl-vep:release_114.0"
 
-# -------------------------
-# Container wrappers
-# -------------------------
-echo "[INIT] Setting container wrappers"
+HTSLIB_IMG="quay.io/biocontainers/htslib:1.21--h566b1c6_1"
 
-SAMTOOLS_IMG="docker://quay.io/biocontainers/samtools:1.20--h50ea8bc_0"
-
-SAMTOOLS="apptainer exec --fakeroot \
-    --bind ${BASE_DIR}:${BASE_DIR} \
-    --bind $(pwd):$(pwd) \
-    ${SAMTOOLS_IMG} samtools"
-
-TABIX="apptainer exec --fakeroot \
-    --bind ${BASE_DIR}:${BASE_DIR} \
-    --bind $(pwd):$(pwd) \
-    ${SAMTOOLS_IMG} tabix"
-
-GATK="apptainer exec --fakeroot \
-    --bind ${BASE_DIR}:${BASE_DIR} \
-    --bind $(pwd):$(pwd) \
-    docker://broadinstitute/gatk:4.1.3.0"
-
-VEP="apptainer exec --fakeroot \
-    --bind ${BASE_DIR}:${BASE_DIR} \
-    --bind $(pwd):$(pwd) \
-    docker://ensemblorg/ensembl-vep:release_114.0"
+SAMTOOLS="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${SAMTOOLS_IMG} samtools"
+TABIX="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${SAMTOOLS_IMG} tabix"
+BGZIP="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${HTSLIB_IMG} bgzip"
+GATK="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${GATK_IMG} gatk"
+VEP="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${VEP_IMG}"
 
 
 # -------------------------
@@ -142,7 +128,7 @@ download_if_missing () {
     # Still verify checksum if one was provided
     if [[ -n "$expected_sha" ]]; then
       local actual_sha
-      actual_sha=$(sha256sum "$out" | awk '{print $1}')
+      actual_sha=$(shasum -a 256 "$out" | awk '{print $1}')
       if [[ "$actual_sha" != "$expected_sha" ]]; then
         echo "[ERROR] Checksum mismatch for existing file: $out"
         echo "        Expected : $expected_sha"
@@ -159,7 +145,7 @@ download_if_missing () {
 
   local tmp_out="${out}.tmp"
 
-  if ! wget --show-progress -O "$tmp_out" "$url"; then
+  if ! curl -L --progress-bar -o "$tmp_out" "$url"; then
     echo "[ERROR] Download failed: $url"
     rm -f "$tmp_out"
     exit 1
@@ -168,7 +154,7 @@ download_if_missing () {
   # Verify checksum before moving into place
   if [[ -n "$expected_sha" ]]; then
     local actual_sha
-    actual_sha=$(sha256sum "$tmp_out" | awk '{print $1}')
+    actual_sha=$(shasum -a 256 "$tmp_out" | awk '{print $1}')
     if [[ "$actual_sha" != "$expected_sha" ]]; then
       echo "[ERROR] Checksum mismatch after download: $url"
       echo "        Expected : $expected_sha"
@@ -251,7 +237,7 @@ if [[ -f "$REF_DICT" ]]; then
   echo "[SKIP] Sequence dictionary already exists: $REF_DICT"
 else
   echo "[RUN] Creating sequence dictionary (.dict) with GATK"
-  $GATK /gatk/gatk CreateSequenceDictionary \
+  $GATK CreateSequenceDictionary \
       -R "$REF_FA" \
       -O "$REF_DICT"
   echo "[OK] Sequence dictionary created: $REF_DICT"
@@ -293,6 +279,39 @@ download_if_missing \
 # Capture version from download date since CIViC nightly has no embedded version
 CIVIC_DOWNLOAD_DATE="$(date +%Y-%m-%d)"
 
+# Convert the TSV to a bgzip-compressed, tabix-indexed VCF for VEP --custom
+CIVIC_VCF="${REF_ROOT}/CIVIC/civic_grch38.vcf.gz"
+
+if [[ -f "$CIVIC_VCF" ]]; then
+  echo "[SKIP] CIViC VCF already exists: $CIVIC_VCF"
+else
+  echo "[RUN] Converting CIViC TSV → VCF using civic_formating.py"
+
+  # Create temporary Docker-backed wrappers for bgzip and tabix
+  # (the Python script calls them via subprocess, so they must be executable files)
+  _WRAPPER_DIR=$(mktemp -d)
+  cat > "${_WRAPPER_DIR}/bgzip" <<BGZIP_WRAPPER
+#!/bin/bash
+docker run --rm -v "${BASE_DIR}:${BASE_DIR}" -v "\$(pwd):\$(pwd)" -w "\$(pwd)" ${SAMTOOLS_IMG} bgzip "\$@"
+BGZIP_WRAPPER
+  cat > "${_WRAPPER_DIR}/tabix" <<TABIX_WRAPPER
+#!/bin/bash
+docker run --rm -v "${BASE_DIR}:${BASE_DIR}" -v "\$(pwd):\$(pwd)" -w "\$(pwd)" ${SAMTOOLS_IMG} tabix "\$@"
+TABIX_WRAPPER
+  chmod +x "${_WRAPPER_DIR}/bgzip" "${_WRAPPER_DIR}/tabix"
+
+  python3 "${SCRIPT_DIR}/civic_formating.py" \
+    --input    "$CIVIC_FILE" \
+    --output   "$CIVIC_VCF" \
+    --assembly grch38 \
+    --bgzip    "${_WRAPPER_DIR}/bgzip" \
+    --tabix    "${_WRAPPER_DIR}/tabix"
+
+  rm -rf "${_WRAPPER_DIR}"
+  echo "[OK] CIViC VCF ready: $CIVIC_VCF"
+  echo "[OK] CIViC index   : ${CIVIC_VCF}.tbi"
+fi
+
 # -------------------------
 # STEP 5: REVEL
 # -------------------------
@@ -304,6 +323,60 @@ REVEL_ZIP="${REF_ROOT}/REVEL/revel_all_chromosomes.zip"
 download_if_missing \
   "https://rothsj06.dmz.hpc.mssm.edu/revel-v1.3_all_chromosomes.zip" \
   "$REVEL_ZIP"
+
+# Process REVEL zip → bgzip-compressed TSV + tabix index
+REVEL_TSV="${REF_ROOT}/REVEL/new_tabbed_revel_grch38.tsv.gz"
+
+if [[ -f "$REVEL_TSV" && -s "$REVEL_TSV" ]]; then
+  echo "[SKIP] REVEL TSV already processed: $REVEL_TSV"
+else
+  # Remove empty file if it exists (failed previous run)
+  [[ -f "$REVEL_TSV" ]] && rm -f "$REVEL_TSV" && echo "[INFO] Removed empty REVEL TSV, reprocessing..."
+  echo "[RUN] Extracting REVEL zip..."
+  unzip -o "$REVEL_ZIP" -d "${REF_ROOT}/REVEL/"
+
+  # The zip may contain a .csv or .csv.gz — find it
+  REVEL_CSV=$(find "${REF_ROOT}/REVEL/" \( -name "*.csv" -o -name "*.csv.gz" \) | head -1)
+  if [[ -z "$REVEL_CSV" ]]; then
+    echo "[ERROR] No CSV found in REVEL zip contents under ${REF_ROOT}/REVEL/"
+    echo "        Zip contents:"
+    unzip -l "$REVEL_ZIP" | tail -n +4 | head -20
+    exit 1
+  fi
+  echo "[RUN] Converting REVEL CSV → tab-separated + bgzip: $REVEL_CSV"
+
+  # Add chr prefix, convert commas to tabs, sort by chrom+pos, bgzip
+  # Handle both plain .csv and .csv.gz inputs
+  if [[ "$REVEL_CSV" == *.gz ]]; then
+    gzip -dc "$REVEL_CSV"
+  else
+    cat "$REVEL_CSV"
+  fi \
+    | awk 'NR==1{next} {
+        n=split($0,a,",");
+        chrom = (a[1] ~ /^chr/) ? a[1] : "chr"a[1];
+        printf "%s", chrom;
+        for(i=2;i<=n;i++) printf "\t%s", a[i];
+        printf "\n"
+      }' \
+    | sort -k1,1V -k2,2n \
+    | $BGZIP > "$REVEL_TSV"
+
+  echo "[RUN] Indexing REVEL with tabix..."
+  $TABIX -s 1 -b 2 -e 2 "$REVEL_TSV"
+  echo "[OK] REVEL ready: $REVEL_TSV"
+
+  # Clean up extracted CSV to save space
+  rm -f "$REVEL_CSV"
+  echo "[OK] Removed intermediate CSV."
+fi
+
+# Safety check: create index if .tbi is missing (e.g. script was interrupted after bgzip)
+if [[ -f "$REVEL_TSV" && ! -f "${REVEL_TSV}.tbi" ]]; then
+  echo "[RUN] REVEL .tbi missing — re-indexing..."
+  $TABIX -s 1 -b 2 -e 2 "$REVEL_TSV"
+  echo "[OK] REVEL index created."
+fi
 
 # -------------------------
 # STEP 6: SpliceAI
@@ -364,6 +437,14 @@ else
       cp "$src" "$dest"
       echo "[OK] Copied: $dest"
     fi
+    # Index if .tbi is missing
+    if [[ ! -f "${dest}.tbi" ]]; then
+      echo "[RUN] Indexing $(basename "$dest") with tabix..."
+      $TABIX -p vcf "$dest"
+      echo "[OK] Index created: ${dest}.tbi"
+    else
+      echo "[SKIP] Index already exists: ${dest}.tbi"
+    fi
   done
 fi
 
@@ -406,22 +487,29 @@ log_step "[STEP 8] VEP cache (homo_sapiens, GRCh38)"
 
 VEP_CACHE_DIR="${REF_ROOT}/homo_sapiens"
 
+VEP_CACHE_TAR="${REF_ROOT}/homo_sapiens_vep_114_GRCh38.tar.gz"
+VEP_CACHE_URL="https://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
+
 if [[ -d "$VEP_CACHE_DIR" ]] && [[ -n "$(ls -A "$VEP_CACHE_DIR" 2>/dev/null)" ]]; then
   echo "[SKIP] VEP cache directory already present and non-empty: $VEP_CACHE_DIR"
 else
-  echo "[RUN] Installing VEP cache into: ${REF_ROOT}"
-  echo "      (this may take a long time — cache is ~15 GB)"
-  # Use the vep_install script available in the container's PATH rather
-  # than a hardcoded miniconda path, which is version- and system-specific
-  $VEP perl /opt/vep/src/ensembl-vep/INSTALL.pl \
-    -a cf \
-    -s homo_sapiens \
-    -y GRCh38 \
-    -c "${REF_ROOT}" \
-    --NO_HTSLIB \
-    --NO_TEST \
-    --CACHE_VERSION 114
-echo "[OK] VEP cache installed: $VEP_CACHE_DIR"
+  # Download with curl (supports resume with -C -, avoids FTP timeout issues)
+  if [[ ! -f "$VEP_CACHE_TAR" ]]; then
+    echo "[DL] Downloading VEP cache (~15 GB) — this will take a while..."
+    echo "     If interrupted, re-run the script: curl will resume from where it stopped."
+    curl -L --progress-bar -C - -o "$VEP_CACHE_TAR" "$VEP_CACHE_URL"
+    echo "[OK] Download complete: $VEP_CACHE_TAR"
+  else
+    echo "[SKIP] VEP cache tarball already downloaded: $VEP_CACHE_TAR"
+  fi
+
+  echo "[RUN] Extracting VEP cache into: ${REF_ROOT}"
+  tar -xzf "$VEP_CACHE_TAR" -C "${REF_ROOT}"
+  echo "[OK] VEP cache installed: $VEP_CACHE_DIR"
+
+  # Remove tarball to free space
+  rm -f "$VEP_CACHE_TAR"
+  echo "[OK] Tarball removed to free disk space."
 fi
 
 # -------------------------
@@ -456,6 +544,15 @@ HOTSPOT_VCF="${REF_ROOT}/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
 download_if_missing \
   "https://raw.githubusercontent.com/charlottekyng/cancer_hotspots/master/resources/hg38.hotspots_changv2_gao_nc.vcf.gz" \
   "$HOTSPOT_VCF"
+
+HOTSPOT_TBI="${HOTSPOT_VCF}.tbi"
+if [[ -f "$HOTSPOT_TBI" ]]; then
+  echo "[SKIP] CancerHotSpots tabix index already exists: $HOTSPOT_TBI"
+else
+  echo "[RUN] Indexing CancerHotSpots with tabix"
+  $TABIX -p vcf "$HOTSPOT_VCF"
+  echo "[OK] CancerHotSpots indexed: $HOTSPOT_TBI"
+fi
 
 # -------------------------
 # STEP 11: Write config file
@@ -505,6 +602,8 @@ CLINVAR_VCF="\${REF_ROOT}/ClinVar/clinvar.vcf.gz"
 CLINVAR_VERSION="${CLINVAR_VERSION}"
 
 CIVIC_FILE="\${REF_ROOT}/CIVIC/nightly-VariantSummaries.tsv"
+CIVIC_VCF="\${REF_ROOT}/CIVIC/civic_grch38.vcf.gz"
+CIVIC_VCF_INDEX="\${REF_ROOT}/CIVIC/civic_grch38.vcf.gz.tbi"
 CIVIC_VERSION="${CIVIC_VERSION}"
 
 REVEL_FILE="\${REF_ROOT}/REVEL/revel_all_chromosomes.zip"

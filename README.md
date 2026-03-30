@@ -1,14 +1,14 @@
-# SMART — Somatic Mutation Annotation and Reporting Tool
+# SMART — Somatic Mutation Annotation and Reporting Tool <a href="#"><img src="Files4ThisProject/SMART_logo_docker.png" align="right" height="120"/></a>
 
-<p align="center"><em>A Dockerised pipeline for TSO500 variant annotation, filtration, and clinical reporting.</em></p>
+<p align="center"><em>A Dockerised pipeline for somatic variant annotation, filtration, and clinical reporting.</em></p>
 
 ---
 
 ## Overview
 
-SMART automates the end-to-end processing of VCF files from the Illumina TSO500 panel. Starting from raw Dragen VCFs on hg19/GRCh37, it performs PASS filtering, coordinate liftover to hg38, comprehensive functional annotation via Ensembl VEP, clinical annotation via OncoKB, and produces a final analysis-ready table with transcript-prioritised results.
+SMART automates the end-to-end processing of somatic VCF files. Starting from raw Dragen VCFs on hg19/GRCh37, it performs PASS filtering, coordinate liftover to hg38, comprehensive functional annotation via Ensembl VEP, clinical annotation via OncoKB, and produces a final analysis-ready table with transcript-prioritised results.
 
-Everything runs inside a single Docker container — no Apptainer, Singularity, or conda environment required.
+Everything runs inside a single Docker container.
 
 ---
 
@@ -71,7 +71,7 @@ Everything runs inside a single Docker container — no Apptainer, Singularity, 
 
 A key design principle of SMART is consistent transcript prioritisation. Both the OncoKB annotator and the table generator use the same 3-tier logic to ensure the transcript shown in the final output matches the one used to query OncoKB:
 
-**Tier 1 — Preferred List:** Does the annotation contain a RefSeq NM ID (version-agnostic) found in the TSO500 transcript whitelist?
+**Tier 1 — Preferred List:** Does the annotation contain a RefSeq NM ID (version-agnostic) found in the transcript whitelist provided at runtime?
 
 **Tier 2 — MANE Select / MANE Plus Clinical:** If no Tier 1 match, use the transcript tagged as MANE Select or MANE Plus Clinical by Ensembl/NCBI.
 
@@ -119,7 +119,7 @@ SMART expects a reference directory with the following structure:
 ├── ClinVar/
 │   └── clinvar.vcf.gz                            (+.tbi)
 ├── CIVIC/
-│   └── civic_01_10_25.vcf.gz                     (+.tbi)
+│   └── civic_grch38.vcf.gz                       (+.tbi)
 ├── gnomAD_constraints/
 │   └── loeuf_dataset_grch38.tsv.gz               (+.tbi)
 ├── CancerHotSpots/
@@ -128,47 +128,29 @@ SMART expects a reference directory with the following structure:
     └── 114_GRCh38/
 ```
 
-**Download sources:**
-
-| Resource | Source |
-|----------|--------|
-| Chain file | `https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz` |
-| hg38 reference | `https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.40_GRCh38.p14/GRCh38_major_release_seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_plus_hs38d1_analysis_set.fna.gz` |
-| VEP cache | Ensembl FTP (`homo_sapiens_vep_114_GRCh38.tar.gz`) |
-| SpliceAI | Illumina basespace (requires account) |
-| ClinVar | NCBI FTP |
-| CIViC | CIViC downloads page |
+All reference files can be downloaded using the provided `get_ref/get_ref_files.sh` script.
 
 ---
 
 ## Quick Start
 
-### 1. Clone and prepare
+### 1. Clone and build
 
 ```bash
-git clone https://github.com/kaine-veal/tso500_project.git
-cd tso500_project
-
-# Create the Docker build context
-cp Dockerfile docker-compose.yml entrypoint.sh requirements.txt .dockerignore docker/
+git clone https://github.com/kaine-veal/SMART.git
+cd SMART
+docker build -t smart:latest .
 ```
 
 ### 2. Add your data
 
 ```bash
-mkdir -p docker/data/OriginalVcf
-cp /path/to/your/*.vcf.gz docker/data/OriginalVcf/
-cp TSO500_transcripts_list.txt docker/data/
+mkdir -p data/OriginalVcf
+cp /path/to/your/*.vcf.gz data/OriginalVcf/
+cp /path/to/transcripts_list.txt data/
 ```
 
-### 3. Build
-
-```bash
-cd docker
-docker build -t smart:latest .
-```
-
-### 4. Run
+### 3. Run
 
 ```bash
 export ONCOKB_TOKEN=your_token_here
@@ -178,7 +160,7 @@ docker run --rm \
   -v /path/to/your/refs:/refs:ro \
   smart:latest \
   "$ONCOKB_TOKEN" \
-  --transcripts-file /data/TSO500_transcripts_list.txt \
+  --transcripts-file /data/transcripts_list.txt \
   --ref-dir /refs
 ```
 
@@ -188,7 +170,7 @@ Or with docker compose (edit `docker-compose.yml` volume paths first):
 docker compose run --rm smart
 ```
 
-### 5. Run in background (recommended for large batches)
+### 4. Run in background (recommended for large batches)
 
 ```bash
 docker run --rm \
@@ -196,7 +178,7 @@ docker run --rm \
   -v /path/to/your/refs:/refs:ro \
   smart:latest \
   "$ONCOKB_TOKEN" \
-  --transcripts-file /data/TSO500_transcripts_list.txt \
+  --transcripts-file /data/transcripts_list.txt \
   --ref-dir /refs \
   > smart.log 2>&1 &
 ```
@@ -248,7 +230,7 @@ When `--keep-tmp` is used, intermediate files are retained:
 
 ---
 
-## Output Annotations
+## Output Annotations (+800 columns)
 
 The final table includes annotations from multiple sources. Key field groups:
 
@@ -301,7 +283,7 @@ Supported filename-inferred types: brain, breast, cholangiocarcinoma, colon, end
 | OncoKB | 5.4 |
 | SpliceAI | 1.3 |
 | REVEL | 1.3 |
-| CIViC | 01_10_25 |
+| CIViC | nightly |
 | Reference genome | GRCh38 (Homo sapiens 114) |
 
 ---
@@ -329,14 +311,17 @@ Verify your token is valid and has not expired. The pipeline logs API errors to 
 **Empty VCF after PASS filtering**
 Some samples may have zero PASS variants. The pipeline will process these without error but the sample will show 0 counts in `variant_counts.txt`.
 
+## Troubleshooting
+Refer to Tests directory for information aboup all tests and verification analysis performed.
+
+
 ---
-
-## Authors
-
-Manuel, Mani, Kaine, and Ian
++
 
 ---
 
 ## License
 
-See repository for licence details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2026 University Hospital Southampton

@@ -22,16 +22,15 @@ services:
       # Your working directory with OriginalVcf/, transcripts list, etc.
       - ./data:/data
 
-      # Your reference files directory
-      # (chain file, hg38.fa, VEP cache, SpliceAI, REVEL, ClinVar, etc.)
-      - /mnt/data1/vep_test:/refs:ro
+      # Reference files directory on ExternalSSD
+      - /Volumes/ExternalSSD/refs:/refs:ro
 
     # --- Command ---
-    # Override with your specific arguments
     command: >
       ${ONCOKB_TOKEN}
       --transcripts-file /data/TSO500_transcripts_list.txt
       --ref-dir /refs
+      --config /data/Config.yaml
       --keep-tmp
 
     # --- Resources (optional, adjust as needed) ---

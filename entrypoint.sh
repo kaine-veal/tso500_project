@@ -30,7 +30,7 @@ Required:
     DIR/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz
     DIR/REVEL/new_tabbed_revel_grch38.tsv.gz
     DIR/ClinVar/clinvar.vcf.gz
-    DIR/CIVIC/civic_01_10_25.vcf.gz
+    DIR/CIVIC/civic_grch38.vcf.gz
     DIR/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz
     DIR/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz
 
@@ -158,7 +158,7 @@ SPLICEAI_SNV="$REF_DIR/SpliceAI/spliceai_scores.raw.snv.hg38.vcf.gz"
 SPLICEAI_INDEL="$REF_DIR/SpliceAI/spliceai_scores.raw.indel.hg38.vcf.gz"
 REVEL_FILE="$REF_DIR/REVEL/new_tabbed_revel_grch38.tsv.gz"
 CLINVAR_VCF="$REF_DIR/ClinVar/clinvar.vcf.gz"
-CIVIC_VCF="$REF_DIR/CIVIC/civic_01_10_25.vcf.gz"
+CIVIC_VCF="$REF_DIR/CIVIC/civic_grch38.vcf.gz"
 LOEUF_FILE="$REF_DIR/gnomAD_constraints/loeuf_dataset_grch38.tsv.gz"
 CANCER_HOTSPOTS_VCF="$REF_DIR/CancerHotSpots/hg38.hotspots_changv2_gao_nc.vcf.gz"
 

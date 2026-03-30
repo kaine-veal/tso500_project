@@ -119,7 +119,7 @@ def run_smart(workdir: str) -> str:
             "docker", "run", "--rm",
             "-v", f"{os.path.dirname(TEST_VCF)}:/input",
             "-v", f"{vcf_dir}:/out",
-            "quay.io/biocontainers/htslib:1.21--h566b23b_0",
+            "quay.io/biocontainers/htslib:1.21--h566b1c6_1",
             "sh", "-c",
             f"bgzip -c /input/{os.path.basename(TEST_VCF)} > /out/{os.path.basename(dest_vcf)}"
             f" && tabix -p vcf /out/{os.path.basename(dest_vcf)}"

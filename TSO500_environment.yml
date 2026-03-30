@@ -1,4 +1,4 @@
-name: TSO500
+name: SMART
 channels:
   - defaults
   - conda-forge
