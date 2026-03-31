@@ -31,8 +31,18 @@ set -euo pipefail
 # Directory where this script lives (used to locate companion scripts)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Base install directory — external SSD
-BASE_DIR="l"
+# Base install directory — set via first argument or fallback to current directory
+if [[ $# -lt 1 ]]; then
+  echo "[ERROR] Usage: $0 <base_dir>"
+  echo "        Example: $0 /Volumes/ExternalSSD"
+  exit 1
+fi
+BASE_DIR="$1"
+
+if [[ ! -d "$BASE_DIR" ]]; then
+  echo "[ERROR] Directory does not exist: $BASE_DIR"
+  exit 1
+fi
 
 # Where reference files will be stored
 REF_ROOT="${BASE_DIR}/refs"
@@ -336,7 +346,7 @@ else
   unzip -o "$REVEL_ZIP" -d "${REF_ROOT}/REVEL/"
 
   # The zip may contain a .csv or .csv.gz — find it
-  REVEL_CSV=$(find "${REF_ROOT}/REVEL/" \( -name "*.csv" -o -name "*.csv.gz" \) | head -1)
+  REVEL_CSV=$(find "${REF_ROOT}/REVEL/" \( -name "*.csv" -o -name "*.csv.gz" -o -name "revel_with_transcript_ids" \) | head -1)
   if [[ -z "$REVEL_CSV" ]]; then
     echo "[ERROR] No CSV found in REVEL zip contents under ${REF_ROOT}/REVEL/"
     echo "        Zip contents:"
@@ -352,18 +362,23 @@ else
   else
     cat "$REVEL_CSV"
   fi \
-    | awk 'NR==1{next} {
+    | awk 'NR==1{
+        n=split($0,a,",");
+        printf "%s", a[1];
+        for(i=2;i<=n;i++) printf "\t%s", a[i];
+        printf "\n"; next
+      } {
         n=split($0,a,",");
         chrom = (a[1] ~ /^chr/) ? a[1] : "chr"a[1];
         printf "%s", chrom;
         for(i=2;i<=n;i++) printf "\t%s", a[i];
         printf "\n"
       }' \
-    | sort -k1,1V -k2,2n \
+    | (read header; echo "$header"; sort -k1,1 -k2,2n) \
     | $BGZIP > "$REVEL_TSV"
 
   echo "[RUN] Indexing REVEL with tabix..."
-  $TABIX -s 1 -b 2 -e 2 "$REVEL_TSV"
+  $TABIX -s 1 -b 2 -e 2 --skip-lines 1 "$REVEL_TSV"
   echo "[OK] REVEL ready: $REVEL_TSV"
 
   # Clean up extracted CSV to save space
@@ -371,11 +386,21 @@ else
   echo "[OK] Removed intermediate CSV."
 fi
 
-# Safety check: create index if .tbi is missing (e.g. script was interrupted after bgzip)
-if [[ -f "$REVEL_TSV" && ! -f "${REVEL_TSV}.tbi" ]]; then
-  echo "[RUN] REVEL .tbi missing — re-indexing..."
-  $TABIX -s 1 -b 2 -e 2 "$REVEL_TSV"
-  echo "[OK] REVEL index created."
+# Safety check: ensure BGZF compression and index
+if [[ -f "$REVEL_TSV" ]]; then
+  # Recompress with bgzip if not already BGZF
+  if ! $TABIX --test-bgzf "$REVEL_TSV" 2>/dev/null; then
+    echo "[RUN] REVEL file is not BGZF — recompressing..."
+    gunzip -c "$REVEL_TSV" | $BGZIP > "${REVEL_TSV}.tmp"
+    mv "${REVEL_TSV}.tmp" "$REVEL_TSV"
+    echo "[OK] REVEL recompressed with bgzip."
+  fi
+  # Create index if missing
+  if [[ ! -f "${REVEL_TSV}.tbi" ]]; then
+    echo "[RUN] REVEL .tbi missing — indexing..."
+    $TABIX -s 1 -b 2 -e 2 --skip-lines 1 "$REVEL_TSV"
+    echo "[OK] REVEL index created."
+  fi
 fi
 
 # -------------------------
@@ -483,12 +508,15 @@ fi
 # -------------------------
 # STEP 8: VEP cache
 # -------------------------
-log_step "[STEP 8] VEP cache (homo_sapiens, GRCh38)"
+log_step "[STEP 8] VEP cache (homo_sapiens merged, GRCh38)"
 
+# The merged cache includes SIFT and PolyPhen precomputed scores in addition
+# to transcript and regulation data. It is larger (~25 GB) but required for
+# full annotation. Use this on servers where disk space is available.
 VEP_CACHE_DIR="${REF_ROOT}/homo_sapiens"
 
-VEP_CACHE_TAR="${REF_ROOT}/homo_sapiens_vep_114_GRCh38.tar.gz"
-VEP_CACHE_URL="https://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_vep_114_GRCh38.tar.gz"
+VEP_CACHE_TAR="${REF_ROOT}/homo_sapiens_merged_vep_114_GRCh38.tar.gz"
+VEP_CACHE_URL="https://ftp.ensembl.org/pub/release-114/variation/indexed_vep_cache/homo_sapiens_merged_vep_114_GRCh38.tar.gz"
 
 if [[ -d "$VEP_CACHE_DIR" ]] && [[ -n "$(ls -A "$VEP_CACHE_DIR" 2>/dev/null)" ]]; then
   echo "[SKIP] VEP cache directory already present and non-empty: $VEP_CACHE_DIR"

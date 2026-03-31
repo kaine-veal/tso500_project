@@ -87,7 +87,7 @@ COPY scripts/ /opt/smart/scripts/
 RUN chmod +x /opt/smart/scripts/*.sh /opt/smart/scripts/*.py 2>/dev/null || true
 
 # ---------- Working directory ----------
-WORKDIR /data
+WORKDIR /output
 
 # ---------- Entrypoint ----------
 COPY entrypoint.sh /opt/smart/entrypoint.sh

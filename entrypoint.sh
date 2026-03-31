@@ -74,6 +74,7 @@ CLEAN_TABLES=1
 TRANSCRIPTS_FILE=""
 REF_DIR=""
 CONFIG_FILE=""
+OUTPUT_DIR_BASE="/output"
 
 # Parse flags
 while [[ $# -gt 0 ]]; do
@@ -113,6 +114,11 @@ while [[ $# -gt 0 ]]; do
         --input-dir)
             [[ $# -lt 2 ]] && { echo "ERROR: --input-dir requires a path"; exit 2; }
             INPUT_DIR="$2"
+            shift 2
+            ;;
+        --output-dir)
+            [[ $# -lt 2 ]] && { echo "ERROR: --output-dir requires a path"; exit 2; }
+            OUTPUT_DIR_BASE="$2"
             shift 2
             ;;
         --transcripts-file)
@@ -217,15 +223,15 @@ SCRIPT_DIR="/opt/smart/scripts"
 
 # Create output directories
 INPUT_DIR="${INPUT_DIR:-./OriginalVcf}"
-FILTERED_DIR="./FilteredVcf"
-OUTPUT_DIR="./LiftOverVcf"
-REJECT_DIR="./LiftOverVcf/Rejected"
-ANNOTATED_DIR="./AnnotatedVcf"
-ONCOKB_DIR="./OncoKB_VCF"
-TABLE_DIR="./Table"
-FINAL_TABLE_DIR="./FINAL_Table"
+FILTERED_DIR="${OUTPUT_DIR_BASE}/FilteredVcf"
+OUTPUT_DIR="${OUTPUT_DIR_BASE}/LiftOverVcf"
+REJECT_DIR="${OUTPUT_DIR_BASE}/LiftOverVcf/Rejected"
+ANNOTATED_DIR="${OUTPUT_DIR_BASE}/AnnotatedVcf"
+ONCOKB_DIR="${OUTPUT_DIR_BASE}/OncoKB_VCF"
+TABLE_DIR="${OUTPUT_DIR_BASE}/Table"
+FINAL_TABLE_DIR="${OUTPUT_DIR_BASE}/FINAL_Table"
 
-mkdir -p "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$ONCOKB_DIR" "$TABLE_DIR" "$FINAL_TABLE_DIR"
+mkdir -p "$OUTPUT_DIR_BASE" "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$ONCOKB_DIR" "$TABLE_DIR" "$FINAL_TABLE_DIR"
 
 echo "Cleaning previous results..."
 rm -f "$OUTPUT_DIR"/*gz "$OUTPUT_DIR"/*tbi "$OUTPUT_DIR"/*.vcf 2>/dev/null || true
@@ -237,7 +243,7 @@ rm -f "$TABLE_DIR"/* 2>/dev/null || true
 rm -f "$FINAL_TABLE_DIR"/* 2>/dev/null || true
 echo "Cleanup complete."
 
-COUNT_FILE="./variant_counts.txt"
+COUNT_FILE="${OUTPUT_DIR_BASE}/variant_counts.txt"
 echo -e "Sample\tOriginal_Variants\tPASS_Variants\tLifted_Variants\tVEP_Annotated_Variants\tOncoKB_Annotated_Variants\tVariantsInTable" > "$COUNT_FILE"
 
 echo "------------------------------------------------------------"
@@ -267,7 +273,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
     [[ -e "$vcf" ]] || continue
 
     basename=$(basename "$vcf")
-    sample="${basename%.dragen.concat_snv_sv.vcf.gz}"
+    sample="${basename%.vcf.gz}"
 
     echo "###################### Processing: $sample ##########################################"
 
@@ -318,7 +324,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
     vep \
         -i "$VEP_INPUT" \
         -o "$ANNOTATED_VCF" \
-        --vcf --everything --offline \
+        --vcf --everything --offline --merged \
         --dir "$VEP_DIR" \
         --dir_plugins "$VEP_PLUGIN_DIR" \
         --assembly GRCh38 \
