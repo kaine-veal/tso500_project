@@ -102,18 +102,16 @@ echo "[PREFLIGHT] Disk space OK."
 echo ""
 echo "[INIT] Setting container wrappers"
 
-# macOS: using Docker (no apptainer/module system available)
-SAMTOOLS_IMG="quay.io/biocontainers/samtools:1.20--h50ea8bc_0"
-GATK_IMG="broadinstitute/gatk:4.6.0.0"
-VEP_IMG="ensemblorg/ensembl-vep:release_114.0"
+SAMTOOLS_IMG="docker://quay.io/biocontainers/samtools:1.20--h50ea8bc_0"
+GATK_IMG="docker://broadinstitute/gatk:4.6.0.0"
+VEP_IMG="docker://ensemblorg/ensembl-vep:release_114.0"
+HTSLIB_IMG="docker://quay.io/biocontainers/htslib:1.21--h566b1c6_1"
 
-HTSLIB_IMG="quay.io/biocontainers/htslib:1.21--h566b1c6_1"
-
-SAMTOOLS="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${SAMTOOLS_IMG} samtools"
-TABIX="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${SAMTOOLS_IMG} tabix"
-BGZIP="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${HTSLIB_IMG} bgzip"
-GATK="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${GATK_IMG} gatk"
-VEP="docker run --rm -v ${BASE_DIR}:${BASE_DIR} -v $(pwd):$(pwd) -w $(pwd) ${VEP_IMG}"
+SAMTOOLS="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} samtools"
+TABIX="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} tabix"
+BGZIP="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${HTSLIB_IMG} bgzip"
+GATK="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${GATK_IMG} gatk"
+VEP="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${VEP_IMG}"
 
 
 # -------------------------
@@ -297,16 +295,16 @@ if [[ -f "$CIVIC_VCF" ]]; then
 else
   echo "[RUN] Converting CIViC TSV → VCF using civic_formating.py"
 
-  # Create temporary Docker-backed wrappers for bgzip and tabix
+  # Create temporary Apptainer-backed wrappers for bgzip and tabix
   # (the Python script calls them via subprocess, so they must be executable files)
   _WRAPPER_DIR=$(mktemp -d)
   cat > "${_WRAPPER_DIR}/bgzip" <<BGZIP_WRAPPER
 #!/bin/bash
-docker run --rm -v "${BASE_DIR}:${BASE_DIR}" -v "\$(pwd):\$(pwd)" -w "\$(pwd)" ${SAMTOOLS_IMG} bgzip "\$@"
+apptainer exec --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} bgzip "\$@"
 BGZIP_WRAPPER
   cat > "${_WRAPPER_DIR}/tabix" <<TABIX_WRAPPER
 #!/bin/bash
-docker run --rm -v "${BASE_DIR}:${BASE_DIR}" -v "\$(pwd):\$(pwd)" -w "\$(pwd)" ${SAMTOOLS_IMG} tabix "\$@"
+apptainer exec --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} tabix "\$@"
 TABIX_WRAPPER
   chmod +x "${_WRAPPER_DIR}/bgzip" "${_WRAPPER_DIR}/tabix"
 
