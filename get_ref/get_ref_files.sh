@@ -107,11 +107,11 @@ GATK_IMG="docker://broadinstitute/gatk:4.6.0.0"
 VEP_IMG="docker://ensemblorg/ensembl-vep:release_114.0"
 HTSLIB_IMG="docker://quay.io/biocontainers/htslib:1.21--h566b1c6_1"
 
-SAMTOOLS="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} samtools"
-TABIX="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} tabix"
-BGZIP="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${HTSLIB_IMG} bgzip"
-GATK="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${GATK_IMG} gatk"
-VEP="apptainer exec --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${VEP_IMG}"
+SAMTOOLS="apptainer exec --unsquash --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} samtools"
+TABIX="apptainer exec --unsquash --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${SAMTOOLS_IMG} tabix"
+BGZIP="apptainer exec --unsquash --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${HTSLIB_IMG} bgzip"
+GATK="apptainer exec --unsquash --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${GATK_IMG} gatk"
+VEP="apptainer exec --unsquash --bind ${BASE_DIR}:${BASE_DIR} --bind $(pwd):$(pwd) ${VEP_IMG}"
 
 
 # -------------------------
@@ -300,11 +300,11 @@ else
   _WRAPPER_DIR=$(mktemp -d)
   cat > "${_WRAPPER_DIR}/bgzip" <<BGZIP_WRAPPER
 #!/bin/bash
-apptainer exec --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} bgzip "\$@"
+apptainer exec --unsquash --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} bgzip "\$@"
 BGZIP_WRAPPER
   cat > "${_WRAPPER_DIR}/tabix" <<TABIX_WRAPPER
 #!/bin/bash
-apptainer exec --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} tabix "\$@"
+apptainer exec --unsquash --bind "${BASE_DIR}:${BASE_DIR}" ${SAMTOOLS_IMG} tabix "\$@"
 TABIX_WRAPPER
   chmod +x "${_WRAPPER_DIR}/bgzip" "${_WRAPPER_DIR}/tabix"
 
