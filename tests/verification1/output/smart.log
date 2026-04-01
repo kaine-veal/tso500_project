@@ -1,0 +1,110 @@
+============================================================
+SMART — Somatic Mutation Annotation and Reporting Tool
+============================================================
+Tool versions:
+  VEP:               114.0
+  GATK:              4.6.0.0
+  bcftools:          bcftools 1.13
+  Python:            Python 3.10.12
+  OncoKB API:        v1.5.0
+
+Reference versions:
+  ClinVar:           clinvar.vcf.gz
+  CIViC:             civic_grch38.vcf.gz
+  CancerHotSpots:    hg38.hotspots_changv2_gao_nc.vcf.gz
+  SpliceAI SNV:      spliceai_scores.raw.snv.hg38.vcf.gz
+  SpliceAI INDEL:    spliceai_scores.raw.indel.hg38.vcf.gz
+  REVEL:             new_tabbed_revel_grch38.tsv.gz
+  LOEUF:             loeuf_dataset_grch38.tsv.gz
+  OncoKB data:       v7.0 (03/30/2026)
+
+
+Config:
+  PASS filter:      ENABLED
+  Liftover:         DISABLED
+  Clean tmp:        DISABLED
+  Clean tables:     ENABLED
+  Transcript file:  /data/verification1_transcripts.txt
+  Config file:      /data/Config.yaml
+  Reference dir:    /refs
+  Input dir:        /data
+============================================================
+
+Cleaning previous results...
+Cleanup complete.
+------------------------------------------------------------
+Input VCF directory: /data
+Number of VCF files found: 1
+VCF files:
+/data/verification1.vcf.gz
+------------------------------------------------------------
+###################### Processing: verification1 ##########################################
+>>> PASS filtering: verification1
+>>> LiftOver DISABLED: verification1
+>>> VEP annotation: verification1
+2026-04-01 10:58:07 - INFO: BAM-edited cache detected, enabling --use_transcript_ref; use --use_given_ref to override this
+>>> OncoKB annotation: verification1
+
+✔ Annotation Mode: Generic Query
+✔ Detected tumor type used for OncoKB: UNKNOWN
+✔ Using 9 preferred NM transcripts (version agnostic).
+✔ Parsed 152 CSQ fields from VCF header
+  SYMBOL=3, Feature=6, HGVSp=11, MANE_SELECT=26, MANE_PLUS_CLINICAL=27, MANE=25
+  [Variant chr1:114713908 T>C] Selected: Preferred List Match (NM/MANE Select). Gene: NRAS. Tx: ENST00000369535. Protein: Q61R
+  [Variant chr2:208248388 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: IDH1. Tx: ENST00000345146. Protein: R132H
+  [Variant chr3:179234297 A>G] Selected: Preferred List Match (NM/MANE Select). Gene: PIK3CA. Tx: ENST00000263967. Protein: H1047R
+  [Variant chr7:55191822 T>G] Selected: Preferred List Match (NM/MANE Select). Gene: EGFR. Tx: ENST00000275493. Protein: L858R
+  [Variant chr7:140753336 A>T] Selected: Preferred List Match (NM/MANE Select). Gene: BRAF. Tx: ENST00000646891. Protein: V600E
+  [Variant chr10:87933147 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: PTEN. Tx: ENST00000371953. Protein: Arg130*
+  [Variant chr12:25245347 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: KRAS. Tx: ENST00000311936. Protein: G13D
+  [Variant chr12:25245350 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: KRAS. Tx: ENST00000311936. Protein: G12D
+  [Variant chr17:7675088 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: TP53. Tx: ENST00000269305. Protein: R175H
+  [Variant chr17:39711955 C>T] Selected: Preferred List Match (NM/MANE Select). Gene: ERBB2. Tx: ENST00000269571. Protein: S310F
+
+📊 OncoKB Annotation Summary:
+  Total variants processed: 10
+  Mutations annotated:      10
+  CNVs annotated:           0
+  Overall annotation rate:  100.00%
+
+✔ OncoKB-annotated VCF written to: /output/OncoKB_VCF/verification1.oncoKB.vcf
+>>> VCF2TABLE: verification1
+>>> MafAnnotator: verification1
+INFO:MafAnnotator:annotating /output/Table/verification1.oncoKB.csv ...
+INFO:AnnotatorCore:Your OncoKB API token is valid and will expire on 2026-06-01 18:42:20 UTC
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 1
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 2
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 3
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 4
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 5
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 6
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 7
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 8
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 9
+INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 10
+INFO:MafAnnotator:done!
+--- verification1 complete ---
+###################### Post Analysis ##########################################
+/opt/smart/scripts/post_analysis.py:428: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  df = df.replace({"[]": "", "%3D": "="}, regex=False).infer_objects(copy=False)
+Reading: ./FINAL_Table/verification1.oncoKB.maf
+
+=== WARNING: Undocumented columns found ===
+Undocumented column: BAM_EDIT
+Undocumented column: GIVEN_REF
+Undocumented column: ONCOKB_ABSTRACTS
+Undocumented column: REFSEQ_MATCH
+Undocumented column: REFSEQ_OFFSET
+Undocumented column: USED_REF
+
+Writing Tier1 MAF (all non-drop columns, no metadata header): ./output/Final_result_tier1.maf
+
+Tier2 columns: 259
+Tier3 columns: 72
+Dropped columns: 0
+Writing Tier2 TSV (bioinformaticians, two-row header): ./output/Final_result_tier2.tsv
+Writing Tier3 TSV (clinical scientists, two-row header): ./output/Final_result_tier3.tsv
+>>> Cleaning table files after post_analysis
+============================================================
+SMART PIPELINE COMPLETE
+============================================================

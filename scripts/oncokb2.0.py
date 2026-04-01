@@ -191,6 +191,10 @@ def _extract_one_letter_protein(csq: str, hgvsp_index: int):
     if not protein:
         return None
 
+    # Strip ENSP/NP prefix e.g. "ENSP00000493543.1:p.Val600Glu" -> "p.Val600Glu"
+    if ":" in protein:
+        protein = protein.split(":")[-1]
+
     if protein.startswith("p."):
         protein = protein[2:]
 
@@ -267,7 +271,7 @@ def find_preferred_csq_and_protein(
     if selected_annotation is None and mane_status_idx >= 0:
         for ann in annotations:
             fields = ann.split("|")
-            if len(fields) > mane_status_idx and fields[mane_status_idx] == "MANE Select":
+            if len(fields) > mane_status_idx and fields[mane_status_idx].replace("_", " ").lower() == "mane select":
                 selected_annotation = ann
                 selection_reason = "MANE Select"
                 break
@@ -277,7 +281,7 @@ def find_preferred_csq_and_protein(
                 fields = ann.split("|")
                 if (
                     len(fields) > mane_status_idx
-                    and fields[mane_status_idx].startswith("MANE Plus Clinical")
+                    and fields[mane_status_idx].replace("_", " ").lower().startswith("mane plus clinical")
                 ):
                     selected_annotation = ann
                     selection_reason = "MANE Plus Clinical"
