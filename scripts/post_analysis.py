@@ -655,7 +655,9 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
     # Standard MAF format — no metadata second row.
     # --------------------------------------------------------
     print(f"\nWriting Tier1 MAF (all non-drop columns, no metadata header): {tier1_maf}")
-    merged.to_csv(tier1_maf, sep="\t", index=False)
+    with open(tier1_maf, "w") as fh:
+        fh.write("#version 2.4\n")
+        merged.to_csv(fh, sep="\t", index=False)
 
     # --------------------------------------------------------
     # Split into Tier 2 and Tier 3 subsets.

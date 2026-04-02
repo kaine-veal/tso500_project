@@ -391,11 +391,60 @@ def final_requiretments(df, output_csv):
     df["Tumor_Seq_Allele1"] = df["ALT"]
     df["Tumor_Seq_Allele2"] = df["ALT"]
 
+    # --- Variant_Classification from VEP Consequence ---
+    consequence_to_classification = {
+        "missense_variant":                 "Missense_Mutation",
+        "stop_gained":                      "Nonsense_Mutation",
+        "stop_lost":                        "Nonstop_Mutation",
+        "synonymous_variant":               "Silent",
+        "splice_donor_variant":             "Splice_Site",
+        "splice_acceptor_variant":          "Splice_Site",
+        "splice_region_variant":            "Splice_Region",
+        "frameshift_variant":               "Frame_Shift_Del",
+        "inframe_insertion":                "In_Frame_Ins",
+        "inframe_deletion":                 "In_Frame_Del",
+        "start_lost":                       "Translation_Start_Site",
+        "5_prime_UTR_variant":              "5'UTR",
+        "3_prime_UTR_variant":              "3'UTR",
+        "intron_variant":                   "Intron",
+        "upstream_gene_variant":            "5'Flank",
+        "downstream_gene_variant":          "3'Flank",
+        "intergenic_variant":               "IGR",
+        "non_coding_transcript_exon_variant": "RNA",
+    }
+
+    def get_variant_classification(row):
+        consequence = row.get("Consequence", "")
+        if not isinstance(consequence, str):
+            return ""
+        ref = str(row.get("REF", ""))
+        alt = str(row.get("ALT", ""))
+        for term in consequence.split("&"):
+            if term == "frameshift_variant":
+                return "Frame_Shift_Ins" if len(alt) > len(ref) else "Frame_Shift_Del"
+            if term in consequence_to_classification:
+                return consequence_to_classification[term]
+        return consequence.split("&")[0]
+
+    def get_variant_type(ref, alt):
+        ref = str(ref)
+        alt = str(alt)
+        if len(ref) == 1 and len(alt) == 1:
+            return "SNP"
+        elif len(ref) > len(alt):
+            return "DEL"
+        elif len(ref) < len(alt):
+            return "INS"
+        return "SNP"
+
+    df["Variant_Classification"] = df.apply(get_variant_classification, axis=1)
+    df["Variant_Type"] = df.apply(lambda r: get_variant_type(r["REF"], r["ALT"]), axis=1)
+
     first_cols = [
         "NCBI_Build", "Hugo_Symbol", "Tumor_Sample_Barcode",
         "HGVSp_Short", "HGVSp", "Chromosome", "Start_Position",
         "End_Position", "Reference_Allele", "Tumor_Seq_Allele1",
-        "Tumor_Seq_Allele2",
+        "Tumor_Seq_Allele2", "Variant_Classification", "Variant_Type",
     ]
 
     first_cols = [c for c in first_cols if c in df.columns]
