@@ -1,0 +1,77 @@
+============================================================
+SMART — Somatic Mutation Annotation and Reporting Tool
+============================================================
+Tool versions:
+  VEP:               114.0
+  GATK:              4.6.0.0
+  bcftools:          bcftools 1.13
+  Python:            Python 3.10.12
+  OncoKB API:        v1.5.0
+
+Reference versions:
+  ClinVar:           clinvar.vcf.gz
+  CIViC:             civic_grch38.vcf.gz
+  CancerHotSpots:    hg38.hotspots_changv2_gao_nc.vcf.gz
+  SpliceAI SNV:      spliceai_scores.raw.snv.hg38.vcf.gz
+  SpliceAI INDEL:    spliceai_scores.raw.indel.hg38.vcf.gz
+  REVEL:             new_tabbed_revel_grch38.tsv.gz
+  LOEUF:             loeuf_dataset_grch38.tsv.gz
+  OncoKB data:       v7.0 (03/30/2026)
+
+
+Config:
+  PASS filter:      ENABLED
+  Liftover:         DISABLED
+  Clean tmp:        DISABLED
+  Clean tables:     ENABLED
+  Transcript file:  /data/transcripts.txt
+  Config file:      /data/Config.yaml
+  Reference dir:    /refs
+  Input dir:        /data
+============================================================
+
+Cleaning previous results...
+Cleanup complete.
+------------------------------------------------------------
+Input VCF directory: /data
+Number of VCF files found: 1
+VCF files:
+/data/FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample.vcf.gz
+------------------------------------------------------------
+###################### Processing: FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample ##########################################
+>>> PASS filtering: FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample
+>>> LiftOver DISABLED: FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample
+>>> VEP annotation: FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample
+2026-04-02 11:32:49 - INFO: BAM-edited cache detected, enabling --use_transcript_ref; use --use_given_ref to override this
+>>> OncoKB annotation: FFG_GZ_T_24h-B_VS_WGS_IL_N_1.bwa.strelka.subsample
+[W::vcf_parse_info] INFO 'QSI' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'TQSI' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'QSI_NT' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'TQSI_NT' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'RU' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'RC' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'IC' is not defined in the header, assuming Type=String
+[W::vcf_parse_info] INFO 'IHP' is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'DP2' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'TAR' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'TIR' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'TOR' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'DP50' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'FDP50' at chr1:16059243 is not defined in the header, assuming Type=String
+
+✔ Annotation Mode: Generic Query
+✔ Detected tumor type used for OncoKB: UNKNOWN
+✔ Using 520 preferred NM transcripts (version agnostic).
+✔ Parsed 152 CSQ fields from VCF header
+  SYMBOL=3, Feature=6, HGVSp=11, MANE_SELECT=26, MANE_PLUS_CLINICAL=27, MANE=25
+  [Variant chr1:12321448 G>C] Selected: MANE Select. Gene: VPS13D. Tx: ENST00000620676. Protein: None
+  [Variant chr1:16059243 GC>G] Selected: MANE Select. Gene: FAM131C. Tx: ENST00000375662. Protein: None
+[W::vcf_parse_format_dict2] FORMAT 'SUBDP50' at chr1:16059243 is not defined in the header, assuming Type=String
+[W::vcf_parse_format_dict2] FORMAT 'BCN50' at chr1:16059243 is not defined in the header, assuming Type=String
+Traceback (most recent call last):
+  File "/opt/smart/scripts/oncokb2.0.py", line 729, in <module>
+    annotate_vcf(
+  File "/opt/smart/scripts/oncokb2.0.py", line 618, in annotate_vcf
+    writer.write_record(variant)
+  File "cyvcf2/cyvcf2.pyx", line 2579, in cyvcf2.cyvcf2.Writer.write_record
+Exception: variant to be written has errorcode: 2
