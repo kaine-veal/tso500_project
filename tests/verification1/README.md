@@ -10,7 +10,8 @@ annotations in ClinVar, CIViC, and OncoKB.
 ## Approach
 
 A synthetic VCF (`verification1.vcf`) was created containing 10 known
-oncogenic hotspot mutations. Each variant was selected because:
+oncogenic hotspot SNVs and 4 Manta-format CNVs (structural variants).
+Each variant was selected because:
 
 1. Its pathogenicity and clinical significance are well established
 2. It should be annotated by multiple sources in the pipeline (ClinVar, CIViC,
@@ -39,6 +40,19 @@ that each variant receives the expected annotation.
 | NRAS_Q61R | NRAS | NM_002524.5 | p.Gln61Arg | Oncogenic. Melanoma, AML |
 | PTEN_R130stop | PTEN | NM_000314.8 | p.Arg130* | Likely oncogenic (tumour suppressor loss). Pan-cancer. Note: minus-strand gene — VCF allele is C>T at chr10:87933147 |
 | ERBB2_S310F | ERBB2 | NM_004448.4 | p.Ser310Phe | Oncogenic. Breast, bladder. Note: plus-strand gene — VCF allele is C>T at chr17:39711955 |
+
+## Manta CNV variants
+
+| Variant ID | Gene | SVTYPE | GRCh38 coordinates | Transcript | Expected OncoKB |
+|---|---|---|---|---|---|
+| MantaDUP:ERBB2_AMP | ERBB2 | DUP | chr17:39,687,914-39,730,426 | NM_004448.4 | Oncogenic, Level 1 (breast cancer — trastuzumab) |
+| MantaDUP:MET_AMP | MET | DUP | chr7:116,672,196-116,798,037 | NM_000245.4 | Oncogenic, Level 1 (NSCLC — capmatinib/tepotinib) |
+| MantaDUP:CDK4_AMP | CDK4 | DUP | chr12:57,748,512-57,793,240 | NM_000075.4 | Oncogenic, Level 1 (liposarcoma — palbociclib) |
+| MantaDEL:CDKN2A_DEL | CDKN2A | DEL | chr9:21,967,753-22,009,812 | NM_000077.5 | Oncogenic (pan-cancer TSG) |
+
+These use real Manta VCF format (`<DUP>`/`<DEL>` ALT, `SVTYPE`/`END`/`SVLEN` INFO fields,
+`PR`/`SR` FORMAT fields). The pipeline classifies them as CNVs via `MantaDUP:`/`MantaDEL:` ID
+prefix and routes them to the OncoKB `/annotate/copyNumberAlterations` endpoint.
 
 ## What to check in the output
 

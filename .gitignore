@@ -12,6 +12,10 @@
 *.cram.*
 *.vcf.gz*
 *vcf
+# Track all VCF files under tests/
+!tests/**/*.vcf.gz
+!tests/**/*.vcf.gz.tbi
+!tests/**/*.vcf
 
 
 # NHS files

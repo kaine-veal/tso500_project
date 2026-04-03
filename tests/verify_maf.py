@@ -121,6 +121,31 @@ EXPECTED = [
         "VARIANT_IN_ONCOKB":     "True",
         "ONCOKB_HOTSPOT":        "True",
     },
+    # verification1 — 4 Manta-format CNVs (well-known oncogenic copy-number alterations)
+    {
+        "ID":                    "MantaDUP:ERBB2_AMP",
+        "Hugo_Symbol":           "ERBB2",
+        "ONCOKB_QUERY_TYPE":     "CNA",
+        "ONCOKB_ONCOGENIC":      "Oncogenic",
+    },
+    {
+        "ID":                    "MantaDUP:MET_AMP",
+        "Hugo_Symbol":           "MET",
+        "ONCOKB_QUERY_TYPE":     "CNA",
+        "ONCOKB_ONCOGENIC":      "Oncogenic",
+    },
+    {
+        "ID":                    "MantaDUP:CDK4_AMP",
+        "Hugo_Symbol":           "CDK4",
+        "ONCOKB_QUERY_TYPE":     "CNA",
+        "ONCOKB_ONCOGENIC":      "Oncogenic",
+    },
+    {
+        "ID":                    "MantaDEL:CDKN2A_DEL",
+        "Hugo_Symbol":           "CDKN2A",
+        "ONCOKB_QUERY_TYPE":     "CNA",
+        "ONCOKB_ONCOGENIC":      "Oncogenic",
+    },
 ]
 
 
@@ -147,6 +172,10 @@ VALID_CLASSIFICATIONS = {
     "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins", "Splice_Site",
     "Splice_Region", "Silent", "Nonstop_Mutation", "Translation_Start_Site",
     "5'UTR", "3'UTR", "Intron", "5'Flank", "3'Flank", "IGR", "RNA",
+    # VEP consequences for structural variants (Manta DUP/DEL)
+    "copy_number_gain", "copy_number_loss",
+    "transcript_amplification", "transcript_ablation",
+    "feature_amplification", "feature_truncation",
 }
 
 VALID_TYPES = {"SNP", "DNP", "TNP", "ONP", "INS", "DEL"}
