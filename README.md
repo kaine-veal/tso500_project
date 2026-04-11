@@ -6,7 +6,7 @@
 
 ## Overview
 
-SMART automates the end-to-end processing of somatic VCF files. Starting from raw Dragen VCFs on hg19/GRCh37, it performs PASS filtering, coordinate liftover to hg38, comprehensive functional annotation via Ensembl VEP, clinical annotation via OncoKB, and produces a final analysis-ready table with transcript-prioritised results.
+SMART automates the end-to-end processing of somatic VCF files. Starting from raw VCFs (hg19/GRCh37 or hg38), it performs PASS filtering, optional coordinate liftover to GRCh38, comprehensive functional annotation via Ensembl VEP, clinical annotation via OncoKB, and produces final analysis-ready tables with transcript-prioritised results in three audience-targeted output tiers.
 
 Everything runs inside a single Docker container.
 
@@ -14,68 +14,36 @@ Everything runs inside a single Docker container.
 
 ## Workflow
 
-```
- ┌──────────────┐
- │  Input VCFs  │   Dragen .vcf.gz files (hg19)
- │  OriginalVcf │
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 1. PASS      │   Keep only PASS-filtered variants
- │    Filter    │   (awk + bgzip + tabix)
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 2. LiftOver  │   hg19 → hg38 coordinate conversion
- │    (GATK)    │   Rejected variants saved separately
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 3. VEP       │   Functional annotation with plugins:
- │  Annotation  │   SpliceAI, REVEL, ClinVar, CIViC,
- │              │   CancerHotspots, LOEUF
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 4. OncoKB    │   Clinical annotation via API:
- │  Annotation  │   Oncogenicity, treatment levels,
- │              │   diagnostic & prognostic implications
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 5. VCF →     │   Transcript-prioritised table with
- │    Table     │   all VEP + OncoKB fields
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 6. MAF       │   OncoKB MafAnnotator for
- │  Annotation  │   standardised MAF output
- └──────┬───────┘
-        │
-        ▼
- ┌──────────────┐
- │ 7. Post      │   Merge all sample tables into
- │  Analysis    │   final combined results
- └──────────────┘
-```
+<p align="center">
+  <img src="Files4ThisProject/Diagram_logo.png" alt="SMART pipeline workflow" width="820"/>
+</p>
+
+A streamlined framework for somatic variant annotation and clinical reporting.
+SMART (Somatic Mutation Annotation and Reporting Tool) integrates sequential processing of somatic variants from input VCF files through quality filtering, optional liftover to GRCh38, and comprehensive functional annotation with Ensembl VEP. A key feature is transcript-level prioritisation using a curated NM whitelist to focus on clinically relevant isoforms. Variants are subsequently enriched with therapeutic, diagnostic and prognostic evidence via API-driven OncoKB annotation. Structured parsing of annotation layers enables standardisation and feature extraction, followed by tiering and filtering to produce report-ready outputs. The framework generates MAF and tabular outputs optimised for both bioinformatic analysis and clinical interpretation. While SNVs and indels are robustly supported, annotation of structural variants remains limited.
+
+| Step | Tool | What happens |
+|------|------|-------------|
+| 1. PASS Filter | bcftools / awk | Keep only PASS-filtered variants |
+| 2. LiftOver | GATK 4.6 | hg19 → hg38 coordinate conversion (optional) |
+| 3. VEP Annotation | Ensembl VEP 114 | Functional annotation with SpliceAI, REVEL, ClinVar, CIViC, CancerHotspots, LOEUF plugins |
+| 4. OncoKB Annotation | oncokb2.0.py | Per-variant clinical annotation via OncoKB REST API (mutations + CNAs) |
+| 5. VCF → Table | vcf2table.py | Transcript-prioritised CSV with all VEP + OncoKB fields |
+| 6. MAF Annotation | MafAnnotator | OncoKB MafAnnotator for standardised MAF output |
+| 7. Post-Analysis | post_analysis.py | Merge samples, expand JSON fields, apply tier filtering, produce final outputs |
 
 ---
 
 ## Transcript Selection Strategy
 
-A key design principle of SMART is consistent transcript prioritisation. Both the OncoKB annotator and the table generator use the same 3-tier logic to ensure the transcript shown in the final output matches the one used to query OncoKB:
+Both the OncoKB annotator and the table generator use the same 3-tier logic to ensure the transcript shown in the final output matches the one used to query OncoKB:
 
 **Tier 1 — Preferred List:** Does the annotation contain a RefSeq NM ID (version-agnostic) found in the transcript whitelist provided at runtime?
 
 **Tier 2 — MANE Select / MANE Plus Clinical:** If no Tier 1 match, use the transcript tagged as MANE Select or MANE Plus Clinical by Ensembl/NCBI.
 
 **Tier 3 — Fallback:** If neither applies, use the first transcript reported by VEP.
+
+This logic applies to both SNV/indel and CNA variants, ensuring consistent gene selection when multiple transcripts overlap a region.
 
 ---
 
@@ -84,7 +52,7 @@ A key design principle of SMART is consistent transcript prioritisation. Both th
 | Tool | Version | Purpose |
 |------|---------|---------|
 | GATK | 4.6.0.0 | LiftOver (hg19 → hg38) |
-| Ensembl VEP | 114.0 | Functional annotation |
+| Ensembl VEP | 114.2 | Functional annotation |
 | SpliceAI plugin | 1.3 | Splice-site impact prediction |
 | REVEL plugin | 1.3 | Missense pathogenicity scoring |
 | bcftools / samtools / tabix | System | VCF manipulation |
@@ -216,6 +184,16 @@ All results are written to the mounted `/data` directory:
 | `variant_counts.txt` | Per-sample variant counts at each pipeline stage |
 | `Output_Results/` | Final merged results from post-analysis |
 
+### Output tiers
+
+The pipeline produces three audience-targeted output files:
+
+| File | Audience | Contents |
+|------|----------|----------|
+| `Final_result_tier1.maf` | Downstream tools | All non-dropped fields in standard MAF format (~1000+ columns) |
+| `Final_result_tier2.tsv` | Bioinformaticians | Selected fields with two-row header (field names + metadata) |
+| `Final_result_tier3.tsv` | Clinical scientists | Clinically relevant fields with two-row header |
+
 When `--keep-tmp` is used, intermediate files are retained:
 
 | Directory | Contents |
@@ -230,13 +208,13 @@ When `--keep-tmp` is used, intermediate files are retained:
 
 ---
 
-## Output Annotations (+800 columns)
+## Output Annotations (~1000+ columns)
 
 The final table includes annotations from multiple sources. Key field groups:
 
 **Core VCF:** CHROM, POS, ID, REF, ALT, QUAL, FILTER, FORMAT
 
-**VEP Functional:** Consequence, IMPACT, SYMBOL, HGVSc, HGVSp, BIOTYPE, EXON, INTRON, SIFT, PolyPhen, VARIANT_CLASS, CANONICAL, MANE_SELECT
+**VEP Functional:** Consequence, IMPACT, SYMBOL, HGVSc, HGVSp, BIOTYPE, EXON, INTRON, SIFT, PolyPhen, VARIANT_CLASS, CANONICAL, MANE_SELECT, MANE_PLUS_CLINICAL
 
 **Population Frequency:** gnomADe/gnomADg allele frequencies across populations, MAX_AF
 
@@ -244,7 +222,13 @@ The final table includes annotations from multiple sources. Key field groups:
 
 **Clinical Databases:** ClinVar (significance, review status, conditions), CIViC (variant type, consequence), CancerHotspots (hotspot and 3D hotspot flags)
 
-**OncoKB Clinical:** Oncogenic classification, mutation effect, therapeutic/diagnostic/prognostic levels, treatment summaries, gene/variant summaries
+**OncoKB Core:** Oncogenic classification, mutation effect, gene/variant exist flags, hotspot, VUS flag, gene and variant summaries
+
+**OncoKB Therapeutic Levels:** LEVEL_1 through LEVEL_R2, HIGHEST_SENSITIVE_LEVEL, HIGHEST_RESISTANCE_LEVEL, HIGHEST_LEVEL, ONCOKB_highestFdaLevel
+
+**OncoKB Diagnostic/Prognostic:** ONCOKB_DIAG_LVL, ONCOKB_PROG_LVL, ONCOKB_diagnosticSummary, ONCOKB_prognosticSummary
+
+**OncoKB Expanded JSON:** Treatment, diagnostic, and prognostic implication entries are expanded from JSON arrays into individual columns (e.g. `ONCOKB_TX_0_level`, `ONCOKB_TX_0_drugs`, `ONCOKB_DIAG_0_level`, `ONCOKB_PROG_0_tumorType`, etc.), producing hundreds of additional columns for full structured access.
 
 ---
 
@@ -259,6 +243,12 @@ SMART classifies variants to route them to the correct OncoKB API endpoint:
 
 Structural insertions (MantaINS) are intentionally routed to the mutation endpoint because they alter gene sequence and produce specific protein changes (e.g. EGFR Exon 20 insertions) that require distinct targeted therapies, unlike simple gene dosage changes.
 
+### CNA annotation
+
+For copy-number variants, SMART applies the same 3-tier transcript selection logic to determine the correct gene symbol before querying OncoKB. This prevents misannotation in regions where multiple genes overlap (e.g. selecting CDKN2A over the adjacent CDKN2B for a 9p21 deletion).
+
+Because MafAnnotator does not correctly annotate CNA rows, the pipeline's post-analysis step overrides MafAnnotator's output for CNA variants with values derived directly from the OncoKB API: `VARIANT_IN_ONCOKB`, `ONCOGENIC`, `MUTATION_EFFECT`, all treatment levels, and `HIGHEST_SENSITIVE/RESISTANCE_LEVEL`.
+
 ---
 
 ## Tumor Type Handling
@@ -267,7 +257,7 @@ SMART supports two modes for OncoKB tumour type context:
 
 **`--tumor_mode filename`** (default in standalone script): Parses the input filename against a built-in cancer type dictionary to infer the tumour type for context-specific evidence levels.
 
-**`--tumor_mode generic`** (default in Docker entrypoint): Uses "UNKNOWN" for pan-cancer annotation. Recommended per OncoKB documentation for broader evidence capture.
+**`--tumor_mode generic`** (default in Docker entrypoint): Omits `tumorType` from API queries for pan-cancer annotation, which returns broader evidence including FDA levels and treatment levels across all tumour types.
 
 Supported filename-inferred types: brain, breast, cholangiocarcinoma, colon, endometrial, HNSC, SNUC, lung, melanoma, ovarian, pancreatic, prostate, renal, sarcoma, thyroid.
 
@@ -285,6 +275,46 @@ Supported filename-inferred types: brain, breast, cholangiocarcinoma, colon, end
 | REVEL | 1.3 |
 | CIViC | nightly |
 | Reference genome | GRCh38 (Homo sapiens 114) |
+
+---
+
+## Testing & Verification
+
+The `tests/` directory contains three independent test suites:
+
+### verification_combined — Field-level API verification
+
+Located in `tests/verification_combined/`. Contains 18 curated variants (14 SNV/indel + 4 CNA) covering key clinical scenarios across NRAS, IDH1, PIK3CA, EGFR, BRAF, GNAQ, PTEN, KRAS, BRCA2, DICER1, TP53, ERBB2, MET, CDKN2A, and CDK4.
+
+After running the pipeline on this VCF, `verify.py` cross-checks the MAF output against live external APIs:
+
+- **OncoKB module** — queries `oncokb.org/api/v1` directly for each variant and compares 23 fields including oncogenicity, mutation effect, all treatment/FDA/diagnostic/prognostic levels, and summaries
+- **VEP module** — queries `rest.ensembl.org` for each SNV/indel and compares 14 fields including consequence, HGVSc/HGVSp, SIFT, PolyPhen, exon number, and canonical flag
+
+Both modules report PASS / MISMATCH per field and include a **coverage report** identifying which fields were testable with the current dataset and which were always empty (with an explanation).
+
+```bash
+# Run both modules
+python tests/verification_combined/verify.py \
+    --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
+    --token $ONCOKB_TOKEN \
+    --output tests/verification_combined/results.tsv
+
+# VEP only (no token needed)
+python tests/verification_combined/verify.py \
+    --maf tests/verification_combined/output/output/Final_result_tier1.maf \
+    --modules vep
+```
+
+See `tests/verification_combined/README.md` for full details.
+
+### verification2 — Variant caller compatibility
+
+Located in `tests/verification2/`. Tests the pipeline against VCFs from four different variant callers (GATK MuTect2, Strelka, SomaticSniper, Pisces) using SEQC2 benchmark samples, verifying that SMART correctly handles different VCF formats, FILTER field conventions, and column orderings.
+
+### verify_maf.py — Expected variant presence
+
+`tests/verify_maf.py` checks that specific known variants are present in a MAF output with the correct ID values. Used as a quick sanity check after a pipeline run.
 
 ---
 
@@ -311,12 +341,8 @@ Verify your token is valid and has not expired. The pipeline logs API errors to 
 **Empty VCF after PASS filtering**
 Some samples may have zero PASS variants. The pipeline will process these without error but the sample will show 0 counts in `variant_counts.txt`.
 
-## Troubleshooting
-Refer to Tests directory for information aboup all tests and verification analysis performed.
-
-
----
-+
+**CNA variants showing Unknown oncogenicity**
+Ensure you are using an up-to-date build. Earlier versions of MafAnnotator incorrectly overwrote CNA annotation with Unknown values. The post-analysis step now corrects this automatically using values from the OncoKB API.
 
 ---
 

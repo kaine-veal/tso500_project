@@ -92,6 +92,8 @@
 
 import os
 import fnmatch
+import ast
+import json
 import yaml
 import pandas as pd
 import argparse
@@ -344,6 +346,104 @@ def expand_structured_columns(df, field_config):
     return df
 
 
+# === Step 2.6: Expand OncoKB JSON array columns ===
+# ONCOKB_treatments        → ONCOKB_TX_{index}_{field}
+# ONCOKB_diagnosticImpl... → ONCOKB_DIAG_{index}_{field}
+# ONCOKB_prognosticImpl... → ONCOKB_PROG_{index}_{field}
+
+_ONCOKB_JSON_FIELDS = {
+    "ONCOKB_treatments":              "ONCOKB_TX",
+    "ONCOKB_diagnosticImplications":  "ONCOKB_DIAG",
+    "ONCOKB_prognosticImplications":  "ONCOKB_PROG",
+}
+
+
+def _flatten_entry(entry, prefix=""):
+    """Recursively flatten a dict to dotted key names, serialising lists."""
+    out = {}
+    for k, v in entry.items():
+        full_key = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict):
+            out.update(_flatten_entry(v, full_key))
+        elif isinstance(v, list):
+            # Lists of dicts (e.g. drugs): join their primary string value
+            parts = []
+            for item in v:
+                if isinstance(item, dict):
+                    # prefer drugName, then name, then first value
+                    parts.append(str(item.get("drugName") or item.get("name") or next(iter(item.values()), "")))
+                else:
+                    parts.append(str(item))
+            out[full_key] = ",".join(parts)
+        else:
+            out[full_key] = "" if v is None else str(v)
+    return out
+
+
+def expand_oncokb_json_arrays(df):
+    """
+    Expand ONCOKB JSON array columns into per-entry flat columns.
+
+    For each row, parses the JSON array and emits columns named
+    {PREFIX}_{index}_{field} — e.g. ONCOKB_TX_0_level, ONCOKB_TX_0_drugs.
+    The number of index columns is determined by the maximum array length
+    across all rows in the dataframe.
+    """
+    for src_col, col_prefix in _ONCOKB_JSON_FIELDS.items():
+        if src_col not in df.columns:
+            continue
+
+        # --- Parse each row's JSON array ---
+        parsed = []
+        max_entries = 0
+        for val in df[src_col]:
+            try:
+                entries = json.loads(val) if val and val != "[]" else []
+            except (json.JSONDecodeError, TypeError):
+                entries = []
+            parsed.append(entries)
+            max_entries = max(max_entries, len(entries))
+
+        if max_entries == 0:
+            print(f"  {src_col}: all rows empty — skipping expansion")
+            continue
+
+        print(f"  {src_col}: expanding {max_entries} entries → prefix {col_prefix}")
+
+        # --- Collect all field names across all entries ---
+        all_fields = []
+        seen = set()
+        for row_entries in parsed:
+            for entry in row_entries:
+                for k in _flatten_entry(entry).keys():
+                    if k not in seen:
+                        all_fields.append(k)
+                        seen.add(k)
+
+        # --- Build new columns ---
+        new_cols = {}
+        for i in range(max_entries):
+            for field in all_fields:
+                col_name = f"{col_prefix}_{i}_{field}"
+                new_cols[col_name] = []
+
+        for row_entries in parsed:
+            for i in range(max_entries):
+                if i < len(row_entries):
+                    flat = _flatten_entry(row_entries[i])
+                else:
+                    flat = {}
+                for field in all_fields:
+                    col_name = f"{col_prefix}_{i}_{field}"
+                    new_cols[col_name].append(flat.get(field, ""))
+
+        new_df = pd.DataFrame(new_cols, index=df.index)
+        df = df.drop(columns=[src_col])
+        df = pd.concat([df, new_df], axis=1)
+
+    return df
+
+
 # === Step 3: Calculate End_Position ===
 def calculate_end_position(df):
     """
@@ -571,7 +671,6 @@ def split_by_tier(df, field_config, field_patterns):
 
     tier2_cols = []
     tier3_cols = []
-    drop_cols  = []
 
     for col in df.columns:
 
@@ -592,7 +691,6 @@ def split_by_tier(df, field_config, field_patterns):
 
     print(f"\nTier2 columns: {len(tier2_cols)}")
     print(f"Tier3 columns: {len(tier3_cols)}")
-    print(f"Dropped columns: {len(drop_cols)}")
 
     return df[tier2_cols], df[tier3_cols]
 
@@ -626,8 +724,101 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
     merged = calculate_end_position(merged)
     merged = normalize_format_fields(merged)
     merged = expand_structured_columns(merged, field_config)
+    print("\n=== Expanding OncoKB JSON array columns ===")
+    merged = expand_oncokb_json_arrays(merged)
     merged = clean_column_values(merged)
     merged = add_vaf_column(merged)
+    # NOTE: drop_columns(merged, COLS_TO_REMOVE) is intentionally deferred until
+    # AFTER the CNA fixes below, because source columns such as ONCOKB_treatments,
+    # ONCOKB_FDA_LVL, ONCOKB_SENS_LVL are tier=drop and must still be present
+    # when we populate LEVEL_* and HIGHEST_*_LEVEL for CNA rows.
+
+    # Bug fix 1: ONCOKB_highestFdaLevel is empty because MafAnnotator
+    # does not populate it for UNKNOWN tumor type. Fill from ONCOKB_FDA_LVL
+    # which was written by oncokb2.0.py directly from the API response.
+    # --------------------------------------------------------
+    if "ONCOKB_highestFdaLevel" in merged.columns and "ONCOKB_FDA_LVL" in merged.columns:
+        mask = merged["ONCOKB_highestFdaLevel"].fillna("").eq("")
+        merged.loc[mask, "ONCOKB_highestFdaLevel"] = merged.loc[mask, "ONCOKB_FDA_LVL"].fillna("")
+        filled = mask.sum()
+        if filled:
+            print(f"\nFilled {filled} empty ONCOKB_highestFdaLevel values from ONCOKB_FDA_LVL")
+
+    # --------------------------------------------------------
+    # Bug fix 2: MafAnnotator cannot handle CNA rows — it sets
+    # VARIANT_IN_ONCOKB=False, ONCOGENIC=Unknown, MUTATION_EFFECT=Unknown
+    # for all CNAs even when oncokb2.0.py got correct values.
+    # For CNA rows, overwrite those three columns from the oncokb2.0.py
+    # source columns (ONCOKB_variantExist, ONCOKB_oncogenic,
+    # ONCOKB_mutationEffect.knownEffect, ONCOKB_mutationEffect.citations.pmids).
+    # --------------------------------------------------------
+    cna_mask = merged.get("ONCOKB_QUERY_TYPE", pd.Series("", index=merged.index)).fillna("").eq("CNA")
+    if cna_mask.any():
+        if "VARIANT_IN_ONCOKB" in merged.columns and "ONCOKB_variantExist" in merged.columns:
+            merged.loc[cna_mask, "VARIANT_IN_ONCOKB"] = merged.loc[cna_mask, "ONCOKB_variantExist"].fillna("")
+        if "ONCOGENIC" in merged.columns and "ONCOKB_oncogenic" in merged.columns:
+            merged.loc[cna_mask, "ONCOGENIC"] = merged.loc[cna_mask, "ONCOKB_oncogenic"].fillna("")
+        if "MUTATION_EFFECT" in merged.columns and "ONCOKB_mutationEffect.knownEffect" in merged.columns:
+            merged.loc[cna_mask, "MUTATION_EFFECT"] = merged.loc[cna_mask, "ONCOKB_mutationEffect.knownEffect"].fillna("")
+        if "MUTATION_EFFECT_CITATIONS" in merged.columns and "ONCOKB_mutationEffect.citations.pmids" in merged.columns:
+            # oncokb2.0.py stores as Python list repr; normalise to semicolon-separated PMIDs
+            def _norm_pmids(v):
+                v = str(v).strip()
+                if not v or v in ("[]", "nan", ""):
+                    return ""
+                # strip brackets and quotes, split on comma
+                v = v.strip("[]").replace("'", "").replace('"', "")
+                return ";".join(p.strip() for p in v.split(",") if p.strip())
+            merged.loc[cna_mask, "MUTATION_EFFECT_CITATIONS"] = (
+                merged.loc[cna_mask, "ONCOKB_mutationEffect.citations.pmids"].fillna("").apply(_norm_pmids)
+            )
+        # ---- Treatment levels from ONCOKB_treatments JSON ----
+        # MafAnnotator leaves LEVEL_1..LEVEL_R2, HIGHEST_SENSITIVE_LEVEL,
+        # HIGHEST_RESISTANCE_LEVEL empty for CNAs. Populate from oncokb2.0.py JSON.
+        if "ONCOKB_treatments" in merged.columns:
+            _level_cols = ["LEVEL_1", "LEVEL_2", "LEVEL_3A", "LEVEL_3B",
+                           "LEVEL_4", "LEVEL_R1", "LEVEL_R2"]
+
+            def _extract_levels(treatments_json):
+                treatments = []
+                if treatments_json and treatments_json not in ("[]", "", "nan"):
+                    try:
+                        treatments = json.loads(treatments_json)
+                    except (json.JSONDecodeError, TypeError):
+                        try:
+                            treatments = ast.literal_eval(treatments_json)
+                        except Exception:
+                            treatments = []
+                out = {lc: [] for lc in _level_cols}
+                for t in treatments:
+                    lvl = t.get("level", "")
+                    if lvl in out:
+                        for d in t.get("drugs", []):
+                            name = d.get("drugName", "")
+                            if name and name not in out[lvl]:
+                                out[lvl].append(name)
+                return {k: ",".join(v) for k, v in out.items()}
+
+            for cna_idx in merged.index[cna_mask]:
+                tx_json = merged.at[cna_idx, "ONCOKB_treatments"]
+                levels = _extract_levels(tx_json)
+                for lc, val in levels.items():
+                    if lc in merged.columns and val:
+                        merged.at[cna_idx, lc] = val
+
+        # ---- HIGHEST_SENSITIVE_LEVEL / HIGHEST_RESISTANCE_LEVEL from oncokb2.0.py ----
+        if "HIGHEST_SENSITIVE_LEVEL" in merged.columns and "ONCOKB_SENS_LVL" in merged.columns:
+            hs_empty = cna_mask & merged["HIGHEST_SENSITIVE_LEVEL"].fillna("").eq("")
+            merged.loc[hs_empty, "HIGHEST_SENSITIVE_LEVEL"] = merged.loc[hs_empty, "ONCOKB_SENS_LVL"].fillna("")
+        if "HIGHEST_RESISTANCE_LEVEL" in merged.columns and "ONCOKB_RESIST_LVL" in merged.columns:
+            hr_empty = cna_mask & merged["HIGHEST_RESISTANCE_LEVEL"].fillna("").eq("")
+            merged.loc[hr_empty, "HIGHEST_RESISTANCE_LEVEL"] = merged.loc[hr_empty, "ONCOKB_RESIST_LVL"].fillna("")
+
+        n_cna = int(cna_mask.sum())
+        print(f"\nApplied CNA overwrite fix for {n_cna} CNA rows "
+              f"(VARIANT_IN_ONCOKB, ONCOGENIC, MUTATION_EFFECT, treatment levels, highest levels)")
+
+    # Now safe to drop COLS_TO_REMOVE (source columns already consumed above)
     merged = drop_columns(merged, COLS_TO_REMOVE)
 
     report_undocumented_columns(merged, field_config, field_patterns)
@@ -642,6 +833,11 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
         if resolve_field_meta(col, field_config, field_patterns).get("tier") == "drop"
     ]
 
+    print(f"\nDropped columns (tier=drop): {len(drop_cols)}")
+    if drop_cols:
+        for c in drop_cols:
+            print(f"  - {c}")
+
     merged = merged.drop(columns=drop_cols, errors="ignore")
 
     os.makedirs(output_dir, exist_ok=True)
@@ -654,7 +850,8 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
     # Tier 1 MAF: all remaining non-drop columns, single header.
     # Standard MAF format — no metadata second row.
     # --------------------------------------------------------
-    print(f"\nWriting Tier1 MAF (all non-drop columns, no metadata header): {tier1_maf}")
+    print(f"\nTier1 columns: {len(merged.columns)}")
+    print(f"Writing Tier1 MAF (all non-drop columns, no metadata header): {tier1_maf}")
     with open(tier1_maf, "w") as fh:
         fh.write("#version 2.4\n")
         merged.to_csv(fh, sep="\t", index=False)

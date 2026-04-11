@@ -327,8 +327,9 @@ def query_oncokb_mutation(gene: str, alteration: str, tumor_type: str, token: st
         "referenceGenome": REFERENCE_GENOME,
         "hugoSymbol": gene,
         "alteration": alteration,
-        "tumorType": tumor_type,
     }
+    if tumor_type and tumor_type.upper() != "UNKNOWN":
+        params["tumorType"] = tumor_type
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
 
     resp = requests.get(API_MUT_BY_PROTEIN, params=params, headers=headers, timeout=15)
@@ -362,8 +363,9 @@ def query_oncokb_cna(gene: str, cna_type: str, tumor_type: str, token: str, cach
         "referenceGenome": REFERENCE_GENOME,
         "hugoSymbol": gene,
         "copyNameAlterationType": cna_type,
-        "tumorType": tumor_type,
     }
+    if tumor_type and tumor_type.upper() != "UNKNOWN":
+        params["tumorType"] = tumor_type
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
 
     resp = requests.get(API_CNA, params=params, headers=headers, timeout=15)
@@ -626,8 +628,22 @@ def annotate_vcf(
 
         elif v_class == "cnv":
             if csqs:
-                fields = str(csqs).split(",")[0].split("|")
-                gene = fields[SYMBOL_IDX] if len(fields) > SYMBOL_IDX else None
+                # Use the same preferred-transcript tier logic as SNVs to pick gene,
+                # so CDKN2A is chosen over adjacent CDKN2B when NM_000077 is preferred.
+                gene, _, _, _ = find_preferred_csq_and_protein(
+                    variant, str(csqs), preferred_transcripts,
+                    symbol_idx=SYMBOL_IDX,
+                    feature_idx=FEATURE_IDX,
+                    hgvsp_idx=HGVSP_IDX,
+                    mane_select_nm_idx=MANE_SELECT_NM_IDX,
+                    mane_plus_clinical_nm_idx=MANE_PLUS_CLINICAL_NM_IDX,
+                    mane_status_idx=MANE_STATUS_IDX,
+                )
+                # find_preferred_csq_and_protein may return None gene for non-coding —
+                # fall back to first CSQ record in that case.
+                if not gene and str(csqs):
+                    first_fields = str(csqs).split(",")[0].split("|")
+                    gene = first_fields[SYMBOL_IDX] if len(first_fields) > SYMBOL_IDX else None
 
             svtype = variant.INFO.get("SVTYPE")
             variant_id = variant.ID if variant.ID else ""

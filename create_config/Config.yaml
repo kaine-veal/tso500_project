@@ -2204,3 +2204,63 @@ field_patterns:
   version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
     of the variant
   tier: 1
+- pattern: ONCOKB_PROG_*_levelOfEvidence
+  description: OncoKB prognostic implication level of evidence
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_alterations
+  description: OncoKB prognostic implication associated alterations
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_pmids
+  description: OncoKB prognostic implication supporting PMIDs
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_abstracts
+  description: OncoKB prognostic implication supporting abstracts
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_description
+  description: OncoKB prognostic implication description
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_tumorType.id
+  description: OncoKB prognostic implication tumor type ID
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_tumorType.code
+  description: OncoKB prognostic implication tumor type code
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_tumorType.name
+  description: OncoKB prognostic implication tumor type name
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_tumorType.mainType.name
+  description: OncoKB prognostic implication main tumor type name
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1
+- pattern: ONCOKB_PROG_*_tumorType.tissue
+  description: OncoKB prognostic implication tumor tissue
+  source: OncoKB
+  version: Refer to the ONCOKB_DATA_VERSION column and datetime of the last update
+    of the variant
+  tier: 1

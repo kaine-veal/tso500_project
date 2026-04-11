@@ -7,17 +7,18 @@
 #   Stage 3: Final image with all tools combined
 # ==============================================================================
 
+ARG BUILD_PLATFORM=linux/amd64
 ARG VEP_VERSION=114.0
 ARG GATK_VERSION=4.6.0.0
 
-FROM ensemblorg/ensembl-vep:release_${VEP_VERSION} AS vep-base
+FROM --platform=${BUILD_PLATFORM} ensemblorg/ensembl-vep:release_${VEP_VERSION} AS vep-base
 
-FROM broadinstitute/gatk:${GATK_VERSION} AS gatk-base
+FROM --platform=${BUILD_PLATFORM} broadinstitute/gatk:${GATK_VERSION} AS gatk-base
 
 # ==============================================================================
 # Final stage: combine everything into one image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM --platform=${BUILD_PLATFORM} ubuntu:22.04
 
 ARG VEP_VERSION=114.0
 ARG GATK_VERSION=4.6.0.0
