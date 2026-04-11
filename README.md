@@ -124,12 +124,36 @@ cp /path/to/transcripts_list.txt data/
 export ONCOKB_TOKEN=your_token_here
 
 docker run --rm \
-  -v $(pwd)/data:/data \
+  -v /path/to/your/input:/data \
+  -v /path/to/your/output:/output \
   -v /path/to/your/refs:/refs:ro \
-  smart:latest \
+  monkiky/smart:1.0.0 \
   "$ONCOKB_TOKEN" \
   --transcripts-file /data/transcripts_list.txt \
-  --ref-dir /refs
+  --config /data/Config.yaml \
+  --ref-dir /refs \
+  --input-dir /data \
+  --no-liftover \
+  --keep-tmp \
+  --keep-tables
+```
+
+For example, using the verification_combined test set:
+
+```bash
+docker run --rm \
+  -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined:/data \
+  -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined/output:/output \
+  -v /Volumes/ExternalSSD/refs:/refs:ro \
+  monkiky/smart:1.0.0 \
+  "$ONCOKB_TOKEN" \
+  --transcripts-file /data/verification_combined_transcripts.txt \
+  --config /data/Config.yaml \
+  --ref-dir /refs \
+  --input-dir /data \
+  --no-liftover \
+  --keep-tmp \
+  --keep-tables
 ```
 
 Or with docker compose (edit `docker-compose.yml` volume paths first):
@@ -138,18 +162,6 @@ Or with docker compose (edit `docker-compose.yml` volume paths first):
 docker compose run --rm smart
 ```
 
-### 4. Run in background (recommended for large batches)
-
-```bash
-docker run --rm \
-  -v $(pwd)/data:/data \
-  -v /path/to/your/refs:/refs:ro \
-  smart:latest \
-  "$ONCOKB_TOKEN" \
-  --transcripts-file /data/transcripts_list.txt \
-  --ref-dir /refs \
-  > smart.log 2>&1 &
-```
 
 ---
 
@@ -190,7 +202,7 @@ The pipeline produces three audience-targeted output files:
 
 | File | Audience | Contents |
 |------|----------|----------|
-| `Final_result_tier1.maf` | Downstream tools | All non-dropped fields in standard MAF format (~1000+ columns) |
+| `Final_result_tier1.maf` | Downstream tools | All non-dropped fields in standard MAF format (~300–900 columns depending on the number of treatment, diagnostic, and prognostic implication entries returned by OncoKB for the variants in the run) |
 | `Final_result_tier2.tsv` | Bioinformaticians | Selected fields with two-row header (field names + metadata) |
 | `Final_result_tier3.tsv` | Clinical scientists | Clinically relevant fields with two-row header |
 
@@ -208,7 +220,7 @@ When `--keep-tmp` is used, intermediate files are retained:
 
 ---
 
-## Output Annotations (~1000+ columns)
+## Output Annotations (~300–900 columns) — [Full field reference →](https://kaine-veal.github.io/SMART/)
 
 The final table includes annotations from multiple sources. Key field groups:
 
@@ -299,11 +311,6 @@ python tests/verification_combined/verify.py \
     --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
     --token $ONCOKB_TOKEN \
     --output tests/verification_combined/results.tsv
-
-# VEP only (no token needed)
-python tests/verification_combined/verify.py \
-    --maf tests/verification_combined/output/output/Final_result_tier1.maf \
-    --modules vep
 ```
 
 See `tests/verification_combined/README.md` for full details.
