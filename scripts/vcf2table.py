@@ -388,7 +388,7 @@ def final_requiretments(df, output_csv):
     df["Start_Position"] = df["POS"]
     df["End_Position"] = df["END"]
     df["Reference_Allele"] = df["REF"]
-    df["Tumor_Seq_Allele1"] = df["ALT"]
+    df["Tumor_Seq_Allele1"] = df["REF"]
     df["Tumor_Seq_Allele2"] = df["ALT"]
 
     # --- Variant_Classification from VEP Consequence ---

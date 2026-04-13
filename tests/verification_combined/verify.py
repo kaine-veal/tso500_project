@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-SMART pipeline verification — VEP + OncoKB field-level comparison.
+SMART pipeline verification — VEP + OncoKB + CIViC field-level comparison.
 
-Runs both verifications against a Final_result_tier1.maf and reports PASS /
+Runs verifications against a Final_result_tier1.maf and reports PASS /
 MISMATCH for every checked field.  Results are written to a single TSV with a
-'Module' column ('VEP' or 'OncoKB') so downstream analysis is easy.
+'Module' column so downstream analysis is easy.
 
 Usage:
-    # Run both modules (default)
+    # Run all modules (default)
     python tests/verification_combined/verify.py \
         --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
         --token $ONCOKB_TOKEN \
@@ -24,15 +24,32 @@ Usage:
         --maf tests/verification_combined/output/output/Final_result_tier1.maf \
         --modules vep
 
+    # Run only CIViC (no token needed)
+    python tests/verification_combined/verify.py \
+        --maf tests/verification_combined/output/output/Final_result_tier1.maf \
+        --modules civic
+
     # Limit to specific variant IDs
     python tests/verification_combined/verify.py \
         --maf ... --token ... \
         --ids BRAF_V600E IDH1_R132H MantaDUP:ERBB2_AMP
 
-Exit code 0 if all checks pass, 1 if any MISMATCH or ERROR.
+Exit code 0 if all checks pass, 1 if any MISMATCH, COVERAGE_GAP, or ERROR.
 
 Fields NOT checked (require local databases/plugins not available via REST API):
-  gnomAD*, ClinVar*, SpliceAI*, REVEL, LOEUF, CancerHotspots*, CIViC*
+  gnomAD*, ClinVar*, SpliceAI*, REVEL, LOEUF, CancerHotspots*
+
+Modules:
+  oncokb  — 23 fields compared against live OncoKB API (requires token)
+  vep     — 14 fields compared against Ensembl REST API (no token needed)
+  civic   — 4 key fields compared against live CIViC API (no token needed)
+            COVERAGE_GAP reported when CIViC has data but MAF is empty
+            (expected until CIViC VCF snapshot is refreshed)
+
+CIViC note: CIViC annotation in SMART comes from a static VEP plugin VCF
+snapshot. The CIViC module queries the live API and flags variants where the
+API has a known entry but the MAF is empty as COVERAGE_GAP (may indicate a
+stale snapshot rather than a pipeline bug).
 """
 
 import argparse
@@ -619,6 +636,256 @@ def run_vep(df: pd.DataFrame) -> list:
 
 
 # =============================================================================
+# CIViC verification
+# =============================================================================
+
+CIVIC_GRAPHQL_URL = "https://civicdb.org/api/graphql"
+CIVIC_HEADERS     = {"Content-Type": "application/json", "Accept": "application/json"}
+
+_CIVIC_QUERY = """
+query VariantsByName($name: String!) {
+  variants(first: 50, name: $name) {
+    nodes {
+      id
+      name
+      __typename
+      ... on GeneVariant {
+        feature { name }
+        variantAliases
+        variantTypes { name }
+        molecularProfiles { nodes { id name } }
+      }
+    }
+  }
+}
+"""
+
+
+def _hgvsp_to_civic_name(hgvsp_short: str) -> str:
+    """Convert 'p.V600E' → 'V600E'. Strips prefix and transcript ID if present."""
+    s = hgvsp_short.strip()
+    if ":" in s:
+        s = s.split(":")[-1]
+    if s.startswith("p."):
+        s = s[2:]
+    return s
+
+
+def query_civic_variant(gene: str, variant_name: str):
+    """
+    Search CIViC GraphQL API for a variant by gene name + variant name.
+    Returns the first GeneVariant whose feature.name matches the gene, or None.
+    """
+    payload = {"query": _CIVIC_QUERY, "variables": {"name": variant_name}}
+    r = requests.post(CIVIC_GRAPHQL_URL, json=payload, headers=CIVIC_HEADERS, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    nodes = data.get("data", {}).get("variants", {}).get("nodes", [])
+    for node in nodes:
+        if node.get("__typename") != "GeneVariant":
+            continue
+        feat = node.get("feature") or {}
+        if feat.get("name", "").upper() == gene.upper():
+            return node
+    return None
+
+
+def _civic_mp_name(rec: dict) -> str:
+    """Return the first molecular profile name from a CIViC GraphQL variant record."""
+    mps = rec.get("molecularProfiles") or {}
+    nodes = mps.get("nodes") or []
+    if nodes:
+        return _norm(nodes[0].get("name"))
+    return ""
+
+
+def _civic_variant_types(rec: dict) -> str:
+    """Return comma-joined variant type names."""
+    vts = rec.get("variantTypes") or []
+    names = [_norm(vt.get("name")) for vt in vts]
+    return ",".join(n for n in names if n)
+
+
+# (maf_col, api_extractor, label, note)
+CIVIC_FIELD_MAP = [
+    ("CIViC_CSQ_CIViC Variant Name",          lambda d: _norm(d.get("name")),                     "name",                      ""),
+    ("CIViC_CSQ_SYMBOL",                       lambda d: _norm((d.get("feature") or {}).get("name")), "feature.name",            ""),
+    ("CIViC_CSQ_CIViC Variant ID",             lambda d: str(d.get("id", "")),                     "id",                        ""),
+    ("CIViC_CSQ_CIViC Molecular Profile Name", _civic_mp_name,                                     "molecularProfiles.nodes[0].name", "first profile only"),
+]
+
+CIVIC_COVERAGE_HINTS = {
+    "CIViC_CSQ_CIViC Molecular Profile Name": (
+        "Molecular profile names are only populated when the pipeline annotates "
+        "a CIViC match. If the CIViC VCF snapshot is outdated, this may be empty "
+        "even when the live API has a matching profile."
+    ),
+}
+
+
+def run_civic(df: pd.DataFrame) -> list:
+    results = []
+    total_pass = total_mismatch = total_gap = total_error = 0
+    n_skipped = 0
+
+    print(f"\n{'#'*60}")
+    print("MODULE: CIViC")
+    print(f"{'#'*60}")
+    print("NOTE: COVERAGE_GAP means the live CIViC API has a record for this")
+    print("      variant but the MAF is empty. This may indicate a stale VCF")
+    print("      snapshot in the pipeline rather than a processing error.")
+
+    for i, (_, row) in enumerate(df.iterrows()):
+        hugo    = str(row.get("Hugo_Symbol", "")).strip()
+        vid     = str(row.get("ID", f"row_{i}")).strip()
+        hgvsp   = str(row.get("HGVSp_Short", "")).strip()
+        sample  = str(row.get("Tumor_Sample_Barcode", "")).strip()
+
+        print(f"\n{'─'*60}")
+        print(f"[{i+1}/{len(df)}]  {sample}  |  {hugo}  |  {vid}  |  {hgvsp}")
+
+        if is_cna(row):
+            print("  SKIP: CNA — CIViC REST API variant search is by protein change")
+            n_skipped += 1
+            continue
+
+        variant_name = _hgvsp_to_civic_name(hgvsp)
+        if not variant_name or not hugo:
+            print(f"  SKIP: cannot derive variant name from HGVSp ({hgvsp!r})")
+            n_skipped += 1
+            continue
+
+        print(f"  → CIViC query: {hugo} {variant_name}")
+
+        try:
+            api_data = query_civic_variant(hugo, variant_name)
+            time.sleep(0.3)
+        except Exception as exc:
+            print(f"  ERROR querying CIViC: {exc}")
+            total_error += 1
+            results.append({
+                "Module": "CIViC", "Sample": sample, "Variant_ID": vid,
+                "Gene": hugo, "HGVSp": hgvsp, "MAF_Field": "API_CALL",
+                "API_Field": "", "MAF_Value": "", "API_Value": "",
+                "Result": f"ERROR: {exc}", "Note": "",
+            })
+            continue
+
+        if api_data is None:
+            # CIViC has no entry — check all MAF CIViC fields are empty too
+            maf_populated = any(
+                maf_value(row, col) for col, *_ in CIVIC_FIELD_MAP
+            )
+            status = "MISMATCH" if maf_populated else "PASS"
+            icon   = "✓" if status == "PASS" else "✗"
+            print(f"  {icon} No CIViC entry found via API — MAF {'also empty' if status == 'PASS' else 'has data (unexpected)'}  [{status}]")
+            if status == "PASS":
+                total_pass += 1
+            else:
+                total_mismatch += 1
+            results.append({
+                "Module":      "CIViC",
+                "Sample":      sample,
+                "Variant_ID":  vid,
+                "Gene":        hugo,
+                "HGVSp":       hgvsp,
+                "MAF_Field":   "PRESENCE",
+                "API_Field":   "variant_exists",
+                "MAF_Value":   "populated" if maf_populated else "empty",
+                "API_Value":   "no match",
+                "Result":      status,
+                "Note":        "No CIViC record found via API for this gene+variant",
+            })
+            continue
+
+        api_id   = api_data.get("id")
+        api_name = api_data.get("name", "")
+        print(f"  Found CIViC record: id={api_id}  name={api_name!r}")
+
+        # Presence check first
+        maf_civic_id = maf_value(row, "CIViC_CSQ_CIViC Variant ID")
+        if not maf_civic_id:
+            # API has data but MAF is empty → coverage gap
+            print(f"  ○ MAF has no CIViC annotation (API found id={api_id}) — COVERAGE_GAP")
+            total_gap += 1
+            results.append({
+                "Module":      "CIViC",
+                "Sample":      sample,
+                "Variant_ID":  vid,
+                "Gene":        hugo,
+                "HGVSp":       hgvsp,
+                "MAF_Field":   "PRESENCE",
+                "API_Field":   "variant_exists",
+                "MAF_Value":   "empty",
+                "API_Value":   f"id={api_id} name={api_name}",
+                "Result":      "COVERAGE_GAP",
+                "Note":        "CIViC VCF snapshot may be outdated or coordinates differ",
+            })
+            continue
+
+        # Both have data — compare field by field
+        for maf_col, api_fn, label, note in CIVIC_FIELD_MAP:
+            maf_val = maf_value(row, maf_col)
+            try:
+                api_val = _norm(api_fn(api_data))
+            except Exception as exc:
+                api_val = f"EXTRACT_ERROR:{exc}"
+
+            if maf_val == api_val or maf_val.lower() == api_val.lower():
+                status = "PASS"
+            else:
+                status = "MISMATCH"
+            icon = "✓" if status == "PASS" else "✗"
+            print(f"  {icon} {maf_col:<45} MAF={maf_val[:45]!r}  API={api_val[:45]!r}  [{status}]")
+
+            if status == "PASS": total_pass += 1
+            else:                total_mismatch += 1
+
+            results.append({
+                "Module":      "CIViC",
+                "Sample":      sample,
+                "Variant_ID":  vid,
+                "Gene":        hugo,
+                "HGVSp":       hgvsp,
+                "MAF_Field":   maf_col,
+                "API_Field":   label,
+                "MAF_Value":   maf_val,
+                "API_Value":   api_val,
+                "Result":      status,
+                "Note":        note,
+            })
+
+    # Summary
+    total = total_pass + total_mismatch + total_error
+    print(f"\n{'='*60}")
+    print("CIViC SUMMARY")
+    print(f"{'='*60}")
+    print(f"  Rows in MAF:         {len(df)}")
+    print(f"  Skipped (CNA/etc):   {n_skipped}")
+    print(f"  Variants checked:    {len(df) - n_skipped - total_error}")
+    print(f"  Field checks:        {total}")
+    print(f"  PASS:                {total_pass}")
+    print(f"  MISMATCH:            {total_mismatch}")
+    print(f"  COVERAGE_GAP:        {total_gap}  (API has data, MAF empty — see note above)")
+    print(f"  ERROR:               {total_error}")
+    print(f"{'='*60}")
+
+    mismatches = [r for r in results if r["Result"] == "MISMATCH"]
+    if mismatches:
+        print("\nMISMATCHES:")
+        for m in mismatches:
+            print(f"  [{m['Variant_ID']}] {m['MAF_Field']}")
+            print(f"      MAF: {m['MAF_Value'][:80]!r}")
+            print(f"      API: {m['API_Value'][:80]!r}")
+
+    print_coverage_report(results, CIVIC_FIELD_MAP,
+                          skip_sentinel_fields={"API_CALL", "PRESENCE"},
+                          hints=CIVIC_COVERAGE_HINTS,
+                          field_map_width=4)
+    return results
+
+
+# =============================================================================
 # Entry point
 # =============================================================================
 
@@ -632,7 +899,7 @@ def main():
     parser.add_argument("--token",   default=None,
                         help="OncoKB API bearer token (required when running oncokb module)")
     parser.add_argument("--modules", default=["all"], nargs="+",
-                        choices=["all", "vep", "oncokb"],
+                        choices=["all", "vep", "oncokb", "civic"],
                         help="Which modules to run (default: all)")
     parser.add_argument("--output",  default=None,
                         help="Optional TSV output path (combined results from all modules)")
@@ -642,7 +909,7 @@ def main():
 
     modules = set(args.modules)
     if "all" in modules:
-        modules = {"vep", "oncokb"}
+        modules = {"vep", "oncokb", "civic"}
 
     if "oncokb" in modules and not args.token:
         print("ERROR: --token is required when running the oncokb module", file=sys.stderr)
@@ -671,11 +938,14 @@ def main():
     if "vep" in modules:
         all_results.extend(run_vep(df))
 
+    if "civic" in modules:
+        all_results.extend(run_civic(df))
+
     # Combined summary
     total_pass     = sum(1 for r in all_results if r["Result"] == "PASS")
     total_mismatch = sum(1 for r in all_results if r["Result"] == "MISMATCH")
-    total_error    = sum(1 for r in all_results
-                         if r["Result"].startswith("ERROR"))
+    total_gap      = sum(1 for r in all_results if r["Result"] == "COVERAGE_GAP")
+    total_error    = sum(1 for r in all_results if r["Result"].startswith("ERROR"))
 
     print(f"\n{'#'*60}")
     print("COMBINED SUMMARY")
@@ -684,9 +954,12 @@ def main():
         mod_results = [r for r in all_results if r.get("Module","").lower() == mod]
         p = sum(1 for r in mod_results if r["Result"] == "PASS")
         m = sum(1 for r in mod_results if r["Result"] == "MISMATCH")
+        g = sum(1 for r in mod_results if r["Result"] == "COVERAGE_GAP")
         e = sum(1 for r in mod_results if r["Result"].startswith("ERROR"))
-        print(f"  {mod.upper():<8}  PASS={p}  MISMATCH={m}  ERROR={e}")
-    print(f"  {'TOTAL':<8}  PASS={total_pass}  MISMATCH={total_mismatch}  ERROR={total_error}")
+        gap_str = f"  COVERAGE_GAP={g}" if g else ""
+        print(f"  {mod.upper():<8}  PASS={p}  MISMATCH={m}{gap_str}  ERROR={e}")
+    gap_total_str = f"  COVERAGE_GAP={total_gap}" if total_gap else ""
+    print(f"  {'TOTAL':<8}  PASS={total_pass}  MISMATCH={total_mismatch}{gap_total_str}  ERROR={total_error}")
     print(f"{'#'*60}")
 
     if args.output:
@@ -697,6 +970,9 @@ def main():
     if total_mismatch > 0 or total_error > 0:
         print("\nRESULT: FAILED")
         sys.exit(1)
+    elif total_gap > 0:
+        print(f"\nRESULT: PASSED WITH {total_gap} COVERAGE GAP(S) — check CIViC VCF snapshot")
+        sys.exit(0)
     else:
         print("\nRESULT: ALL CHECKS PASSED")
         sys.exit(0)

@@ -671,6 +671,7 @@ def split_by_tier(df, field_config, field_patterns):
 
     tier2_cols = []
     tier3_cols = []
+    drop_cols  = []
 
     for col in df.columns:
 

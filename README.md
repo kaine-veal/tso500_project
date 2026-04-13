@@ -220,7 +220,7 @@ When `--keep-tmp` is used, intermediate files are retained:
 
 ---
 
-## Output Annotations (~300–900 columns) — [Full field reference →](https://kaine-veal.github.io/SMART/)
+## Output Annotations (~300–900 columns) — [Full field reference →](https://kaine-veal.github.io/tso500_project/)
 
 The final table includes annotations from multiple sources. Key field groups:
 

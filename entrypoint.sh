@@ -151,6 +151,7 @@ done
 [[ ! -d "$REF_DIR" ]] && { echo "ERROR: Reference directory not found: $REF_DIR"; exit 2; }
 [[ -z "$CONFIG_FILE" ]] && { echo "ERROR: --config is required"; usage; exit 2; }
 [[ ! -f "$CONFIG_FILE" ]] && { echo "ERROR: Config file not found: $CONFIG_FILE"; exit 2; }
+INPUT_DIR="${INPUT_DIR:-./OriginalVcf}"
 [[ ! -d "$INPUT_DIR" ]] && { echo "ERROR: Input directory not found: $INPUT_DIR"; exit 2; }
 
 # Reference files
@@ -286,7 +287,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
         zcat "$vcf" \
             | awk 'BEGIN{FS=OFS="\t"} /^#/ {print; next} $7 == "PASS"' \
             | bgzip > "$FILTERED_VCF"
-        tabix -p vcf "$FILTERED_VCF"
+        tabix -p vcf "$FILTERED_VCF" || { echo "ERROR: tabix indexing failed for $FILTERED_VCF"; exit 1; }
         INPUT_FOR_NEXT="$FILTERED_VCF"
     else
         echo ">>> PASS filtering DISABLED: $sample"
@@ -394,7 +395,8 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 done
 
 echo "###################### Post Analysis ##########################################"
-python3 "$SCRIPT_DIR/post_analysis.py" --config "$CONFIG_FILE"
+python3 "$SCRIPT_DIR/post_analysis.py" --config "$CONFIG_FILE" \
+    || { echo "ERROR: post_analysis.py failed — aborting"; exit 1; }
 
 if [[ $CLEAN_TABLES -eq 1 ]]; then
     echo ">>> Cleaning table files after post_analysis"
