@@ -309,11 +309,12 @@ TABIX_WRAPPER
   chmod +x "${_WRAPPER_DIR}/bgzip" "${_WRAPPER_DIR}/tabix"
 
   python3 "${SCRIPT_DIR}/civic_formating.py" \
-    --input    "$CIVIC_FILE" \
-    --output   "$CIVIC_VCF" \
-    --assembly grch38 \
-    --bgzip    "${_WRAPPER_DIR}/bgzip" \
-    --tabix    "${_WRAPPER_DIR}/tabix"
+    --input      "$CIVIC_FILE" \
+    --output     "$CIVIC_VCF" \
+    --assembly   grch38 \
+    --chain-file "$CHAIN_FILE" \
+    --bgzip      "${_WRAPPER_DIR}/bgzip" \
+    --tabix      "${_WRAPPER_DIR}/tabix"
 
   rm -rf "${_WRAPPER_DIR}"
   echo "[OK] CIViC VCF ready: $CIVIC_VCF"

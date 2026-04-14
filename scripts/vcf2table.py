@@ -199,12 +199,18 @@ def main(args):
             nm_selected = ""
 
             if csq_raw:
+                first_vep = None
+                first_nm = ""
                 for csq in csq_raw.split(","):
                     fields = csq.split("|")
                     if len(fields) < len(CSQ_FIELDS):
                         fields.extend([""] * (len(CSQ_FIELDS) - len(fields)))
 
                     vep = dict(zip(CSQ_FIELDS, fields))
+
+                    # Keep the first record as fallback before any transcript match
+                    if first_vep is None:
+                        first_vep = vep
 
                     nm = ""
                     for key in ("MANE_SELECT", "MANE", "MANE_PLUS_CLINICAL"):
@@ -220,9 +226,10 @@ def main(args):
                         nm_selected = nm
                         break
 
-                if not nm_selected:
-                    selected_vep = dict(zip(CSQ_FIELDS, fields))
-                    nm_selected = nm
+                if not nm_selected and first_vep is not None:
+                    # No preferred transcript found — use the first CSQ record
+                    selected_vep = first_vep
+                    nm_selected = first_nm
 
             row["NM_Transcript"] = nm_selected
             row.update(selected_vep)

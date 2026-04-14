@@ -44,12 +44,27 @@ Modules:
   vep     — 14 fields compared against Ensembl REST API (no token needed)
   civic   — 4 key fields compared against live CIViC API (no token needed)
             COVERAGE_GAP reported when CIViC has data but MAF is empty
-            (expected until CIViC VCF snapshot is refreshed)
+            PASS expected for variants whose GRCh38 coords match the CIViC VCF snapshot
 
 CIViC note: CIViC annotation in SMART comes from a static VEP plugin VCF
-snapshot. The CIViC module queries the live API and flags variants where the
-API has a known entry but the MAF is empty as COVERAGE_GAP (may indicate a
-stale snapshot rather than a pipeline bug).
+snapshot (civic_grch38.vcf.gz).  The snapshot is built from the nightly
+VariantSummaries TSV by get_ref/civic_formating.py using pyliftover to
+convert GRCh37 → GRCh38 (the TSV only provides GRCh37 coords since 2025).
+
+Variants expected to have full CIViC annotation (PASS) after pipeline run:
+  BRAF     V600E    chr7:140753336  A>T   CIViC id=12
+  EGFR     L858R    chr7:55191822   T>G   CIViC id=33
+  EGFR     T790M    chr7:55181378   C>T   CIViC id=34
+  EGFR     G719S    chr7:55174014   G>A   CIViC id=29 (if added)
+  KRAS     G12D     chr12:25245350  C>T   CIViC id=79
+  KRAS     G12C     chr12:25245351  C>A   CIViC id=76
+  KRAS     G13D     chr12:25245347  C>T   CIViC id=81
+  IDH1     R132H    chr2:208248388  C>T   CIViC id=420
+  NRAS     Q61R     chr1:114713908  T>C   CIViC id=96
+  PIK3CA   H1047R   chr3:179234297  A>G   CIViC id=107
+  PIK3CA   E545K    chr3:179218303  G>A   CIViC id=104
+  TP53     R175H    chr17:7675088   C>T   CIViC id=116
+  TP53     R248W    chr17:7674221   G>A   CIViC id=118
 """
 
 import argparse
@@ -660,6 +675,22 @@ query VariantsByName($name: String!) {
 }
 """
 
+_CIVIC_QUERY_BY_ID = """
+query VariantById($id: Int!) {
+  variant(id: $id) {
+    id
+    name
+    __typename
+    ... on GeneVariant {
+      feature { name }
+      variantAliases
+      variantTypes { name }
+      molecularProfiles { nodes { id name } }
+    }
+  }
+}
+"""
+
 
 def _hgvsp_to_civic_name(hgvsp_short: str) -> str:
     """Convert 'p.V600E' → 'V600E'. Strips prefix and transcript ID if present."""
@@ -687,6 +718,22 @@ def query_civic_variant(gene: str, variant_name: str):
         feat = node.get("feature") or {}
         if feat.get("name", "").upper() == gene.upper():
             return node
+    return None
+
+
+def query_civic_variant_by_id(variant_id: int):
+    """
+    Fetch a CIViC variant by numeric ID.
+    Returns the variant dict (GeneVariant) or None.
+    Used to validate the MAF's annotated CIViC ID against the live API.
+    """
+    payload = {"query": _CIVIC_QUERY_BY_ID, "variables": {"id": variant_id}}
+    r = requests.post(CIVIC_GRAPHQL_URL, json=payload, headers=CIVIC_HEADERS, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    node = data.get("data", {}).get("variant")
+    if node and node.get("__typename") == "GeneVariant":
+        return node
     return None
 
 
@@ -823,15 +870,37 @@ def run_civic(df: pd.DataFrame) -> list:
             })
             continue
 
+        # If the MAF was annotated with a different CIViC variant ID than the one
+        # returned by the protein-change search (e.g. compound S310F/Y vs specific
+        # S310F), look up the MAF's variant ID directly so the field comparison
+        # validates the pipeline's annotation against its own source record.
+        cmp_data = api_data
+        try:
+            maf_id_int = int(maf_civic_id)
+        except (ValueError, TypeError):
+            maf_id_int = None
+
+        if maf_id_int is not None and maf_id_int != api_id:
+            maf_id_record = query_civic_variant_by_id(maf_id_int)
+            time.sleep(0.3)
+            if maf_id_record is not None:
+                print(f"  MAF has id={maf_id_int} ({maf_id_record.get('name')!r}); "
+                      f"API name-search returned id={api_id} ({api_name!r}). "
+                      f"Using MAF variant id for field comparison.")
+                cmp_data = maf_id_record
+
         # Both have data — compare field by field
         for maf_col, api_fn, label, note in CIVIC_FIELD_MAP:
             maf_val = maf_value(row, maf_col)
             try:
-                api_val = _norm(api_fn(api_data))
+                api_val = _norm(api_fn(cmp_data))
             except Exception as exc:
                 api_val = f"EXTRACT_ERROR:{exc}"
 
             if maf_val == api_val or maf_val.lower() == api_val.lower():
+                status = "PASS"
+            elif maf_val.replace("_", " ").lower() == api_val.lower():
+                # CIViC VCF stores spaces as underscores (e.g. "BRAF_V600E" vs "BRAF V600E")
                 status = "PASS"
             else:
                 status = "MISMATCH"

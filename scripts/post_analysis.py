@@ -291,15 +291,15 @@ def expand_structured_columns(df, field_config):
         if field not in df.columns:
             continue
 
+        # Only expand fields explicitly marked as pipe-delimited structured fields.
+        # Using an explicit opt-in avoids misidentifying natural-language descriptions
+        # that happen to contain '|' (e.g. ClinVar_GENEINFO, ClinVar_MC).
+        if not meta.get("expand", False):
+            continue
+
         description = meta.get("description", "")
 
         if "|" not in description:
-            continue
-
-        # Avoid splitting natural language descriptions
-        tokens = description.split("|")
-
-        if any(len(t.strip()) > 40 for t in tokens):
             continue
 
         subfields = [x.strip() for x in description.split("|")]

@@ -1084,6 +1084,7 @@ fields:
       Rating|CIViC Assertion ACMG Codes|CIViC Assertion AMP Category|CIViC Assertion
       NCCN Guideline|CIViC Assertion Regulatory Approval|CIViC Assertion FDA Companion
       Test
+    expand: true
     source: CIViC
     version: CIViC_v3.6
     tier: drop
