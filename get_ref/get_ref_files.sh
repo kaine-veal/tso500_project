@@ -312,7 +312,7 @@ TABIX_WRAPPER
     --input      "$CIVIC_FILE" \
     --output     "$CIVIC_VCF" \
     --assembly   grch38 \
-    --chain-file "$CHAIN_FILE" \
+    --chain-file "$CHAIN" \
     --bgzip      "${_WRAPPER_DIR}/bgzip" \
     --tabix      "${_WRAPPER_DIR}/tabix"
 
