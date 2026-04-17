@@ -1,4 +1,4 @@
-# verification_combined
+# verification1
 
 Field-level verification of the SMART pipeline against live external APIs.
 
@@ -13,8 +13,8 @@ annotation logic, VEP field extraction, and post-processing transformations.
 
 | File | Description |
 |---|---|
-| `verification_combined.vcf.gz` | 18 synthetic variants (14 SNV/indel + 4 CNA) |
-| `verification_combined_transcripts.txt` | 15 preferred NM transcript IDs |
+| `verification1.vcf.gz` | 18 synthetic variants (14 SNV/indel + 4 CNA) |
+| `verification1_transcripts.txt` | 15 preferred NM transcript IDs |
 | `Config.yaml` | Pipeline config (tiers, column metadata) |
 
 ## Variants
@@ -63,13 +63,13 @@ Fields not verified (require local plugin databases unavailable via REST API):
 
 ```bash
 # Build and run the pipeline first (something like)
-docker run --rm -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined:/data -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined/output:/output -v /Volumes/ExternalSSD/refs:/refs:ro monkiky/smart:1.0.0 "$ONCOKB_TOKEN" --transcripts-file /data/verification_combined_transcripts.txt --ref-dir /refs --config /data/Config.yaml --no-liftover --keep-tmp --input-dir /data --keep-tables
+docker run --rm -v /Users/monkiky/Desktop/tso500_project/tests/verification1:/data -v /Users/monkiky/Desktop/tso500_project/tests/verification1/output:/output -v /Volumes/ExternalSSD/refs:/refs:ro monkiky/smart:1.0.0 "$ONCOKB_TOKEN" --transcripts-file /data/verification1_transcripts.txt --ref-dir /refs --config /data/Config.yaml --no-liftover --keep-tmp --input-dir /data --keep-tables
 
 # Run both verification modules
-python3 tests/verification_combined/verify.py \
-    --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
+python3 tests/verification1/verify.py \
+    --maf  tests/verification1/output/output/Final_result_tier1.maf \
     --token $ONCOKB_TOKEN \
-    --output tests/verification_combined/results.tsv
+    --output tests/verification1/results.tsv
 ```
 
 Exit code `0` = all checks passed. Exit code `1` = one or more mismatches or errors.

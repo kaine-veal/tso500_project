@@ -8,29 +8,29 @@ MISMATCH for every checked field.  Results are written to a single TSV with a
 
 Usage:
     # Run all modules (default)
-    python tests/verification_combined/verify.py \
-        --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
+    python tests/verification1/verify.py \
+        --maf  tests/verification1/output/output/Final_result_tier1.maf \
         --token $ONCOKB_TOKEN \
         --output results.tsv
 
     # Run only OncoKB
-    python tests/verification_combined/verify.py \
-        --maf tests/verification_combined/output/output/Final_result_tier1.maf \
+    python tests/verification1/verify.py \
+        --maf tests/verification1/output/output/Final_result_tier1.maf \
         --token $ONCOKB_TOKEN \
         --modules oncokb
 
     # Run only VEP (no token needed)
-    python tests/verification_combined/verify.py \
-        --maf tests/verification_combined/output/output/Final_result_tier1.maf \
+    python tests/verification1/verify.py \
+        --maf tests/verification1/output/output/Final_result_tier1.maf \
         --modules vep
 
     # Run only CIViC (no token needed)
-    python tests/verification_combined/verify.py \
-        --maf tests/verification_combined/output/output/Final_result_tier1.maf \
+    python tests/verification1/verify.py \
+        --maf tests/verification1/output/output/Final_result_tier1.maf \
         --modules civic
 
     # Limit to specific variant IDs
-    python tests/verification_combined/verify.py \
+    python tests/verification1/verify.py \
         --maf ... --token ... \
         --ids BRAF_V600E IDH1_R132H MantaDUP:ERBB2_AMP
 

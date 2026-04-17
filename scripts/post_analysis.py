@@ -697,7 +697,7 @@ def split_by_tier(df, field_config, field_patterns):
 
 
 # === Main merge function ===
-def merge_maf_files(input_dir, output_dir, yaml_config):
+def merge_maf_files(input_dir, output_dir, yaml_config, smart_version="unknown"):
 
     field_config, field_patterns = load_field_config(yaml_config)
 
@@ -854,7 +854,7 @@ def merge_maf_files(input_dir, output_dir, yaml_config):
     print(f"\nTier1 columns: {len(merged.columns)}")
     print(f"Writing Tier1 MAF (all non-drop columns, no metadata header): {tier1_maf}")
     with open(tier1_maf, "w") as fh:
-        fh.write("#version 2.4\n")
+        fh.write(f"#SMART_VERSION {smart_version}\n")
         merged.to_csv(fh, sep="\t", index=False)
 
     # --------------------------------------------------------
@@ -891,10 +891,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Path to Config.yaml")
+    parser.add_argument("--smart-version", default="unknown", help="SMART pipeline version")
     args = parser.parse_args()
 
     merge_maf_files(
         input_dir="./FINAL_Table/",
         output_dir="./output/",
-        yaml_config=args.config
+        yaml_config=args.config,
+        smart_version=args.smart_version,
     )

@@ -154,6 +154,9 @@ done
 INPUT_DIR="${INPUT_DIR:-./OriginalVcf}"
 [[ ! -d "$INPUT_DIR" ]] && { echo "ERROR: Input directory not found: $INPUT_DIR"; exit 2; }
 
+# SMART version — read from VERSION file bundled in the image
+SMART_VERSION="$(cat "$(dirname "${BASH_SOURCE[0]}")/VERSION" 2>/dev/null || echo "unknown")"
+
 # Reference files
 # You may have problems with the filename of ref files
 # as org. change them frecuenly (e.g., new versions)
@@ -185,7 +188,7 @@ ONCOKB_DATA_DATE=$(echo "$ONCOKB_INFO" | grep -oP '"dataVersion":\{"version":"[^
 ONCOKB_API_VERSION=$(echo "$ONCOKB_INFO" | grep -oP '"apiVersion":\{"version":"\K[^"]+' || echo "unknown")
 
 echo "============================================================"
-echo "SMART — Somatic Mutation Annotation and Reporting Tool"
+echo "SMART — Somatic Mutation Annotation and Reporting Tool  v${SMART_VERSION}"
 echo "============================================================"
 echo "Tool versions:"
 echo "  VEP:               $(vep --help 2>&1 | grep -oP 'ensembl-vep\s*:\s*\K\S+' || echo 'unknown')"
@@ -396,6 +399,7 @@ done
 
 echo "###################### Post Analysis ##########################################"
 python3 "$SCRIPT_DIR/post_analysis.py" --config "$CONFIG_FILE" \
+    --smart-version "$SMART_VERSION" \
     || { echo "ERROR: post_analysis.py failed — aborting"; exit 1; }
 
 if [[ $CLEAN_TABLES -eq 1 ]]; then

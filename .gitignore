@@ -188,5 +188,4 @@ cython_debug/
 *.err
 *.out
 
-# local run scripts
-run_verification.sh
+# local run scripts (replaced by tests/run_all_verifications.sh)

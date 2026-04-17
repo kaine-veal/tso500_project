@@ -127,7 +127,7 @@ docker run --rm \
   -v /path/to/your/input:/data \
   -v /path/to/your/output:/output \
   -v /path/to/your/refs:/refs:ro \
-  monkiky/smart:1.0.0 \
+  monkiky/smart:latest \
   "$ONCOKB_TOKEN" \
   --transcripts-file /data/transcripts_list.txt \
   --config /data/Config.yaml \
@@ -138,16 +138,16 @@ docker run --rm \
   --keep-tables
 ```
 
-For example, using the verification_combined test set:
+For example, using the verification1 test set:
 
 ```bash
 docker run --rm \
-  -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined:/data \
-  -v /Users/monkiky/Desktop/tso500_project/tests/verification_combined/output:/output \
-  -v /Volumes/ExternalSSD/refs:/refs:ro \
-  monkiky/smart:1.0.0 \
+  -v /path/to/tso500_project/tests/verification1:/data \
+  -v /path/to/tso500_project/tests/verification1/output:/output \
+  -v /path/to/refs:/refs:ro \
+  monkiky/smart:latest \
   "$ONCOKB_TOKEN" \
-  --transcripts-file /data/verification_combined_transcripts.txt \
+  --transcripts-file /data/verification1_transcripts.txt \
   --config /data/Config.yaml \
   --ref-dir /refs \
   --input-dir /data \
@@ -275,10 +275,23 @@ Supported filename-inferred types: brain, breast, cholangiocarcinoma, colon, end
 
 ---
 
+## Versioning
+
+The pipeline version is recorded in the `VERSION` file at the repository root. It is printed in the terminal banner at the start of every run and written as the first line of every output MAF file (`#SMART_VERSION x.y.z`), making each result file self-describing and traceable to a specific release.
+
+To check the version bundled in a Docker image:
+
+```bash
+docker run --rm monkiky/smart:latest cat /app/VERSION
+```
+
+---
+
 ## Tool Versions
 
 | Component | Version |
 |-----------|---------|
+| SMART | see `VERSION` |
 | VCF format | 4.2 |
 | GATK LiftoverVcf | 4.6.0.0 |
 | Ensembl VEP | 114.2 |
@@ -292,32 +305,73 @@ Supported filename-inferred types: brain, breast, cholangiocarcinoma, colon, end
 
 ## Testing & Verification
 
-The `tests/` directory contains three independent test suites:
-
-### verification_combined — Field-level API verification
-
-Located in `tests/verification_combined/`. Contains 18 curated variants (14 SNV/indel + 4 CNA) covering key clinical scenarios across NRAS, IDH1, PIK3CA, EGFR, BRAF, GNAQ, PTEN, KRAS, BRCA2, DICER1, TP53, ERBB2, MET, CDKN2A, and CDK4.
-
-After running the pipeline on this VCF, `verify.py` cross-checks the MAF output against live external APIs:
-
-- **OncoKB module** — queries `oncokb.org/api/v1` directly for each variant and compares 23 fields including oncogenicity, mutation effect, all treatment/FDA/diagnostic/prognostic levels, and summaries
-- **VEP module** — queries `rest.ensembl.org` for each SNV/indel and compares 14 fields including consequence, HGVSc/HGVSp, SIFT, PolyPhen, exon number, and canonical flag
-
-Both modules report PASS / MISMATCH per field and include a **coverage report** identifying which fields were testable with the current dataset and which were always empty (with an explanation).
+The `tests/` directory contains three independent verification suites plus a shared utility. All automated suites can be run together:
 
 ```bash
-# Run both modules
-python tests/verification_combined/verify.py \
-    --maf  tests/verification_combined/output/output/Final_result_tier1.maf \
-    --token $ONCOKB_TOKEN \
-    --output tests/verification_combined/results.tsv
+export ONCOKB_TOKEN=your_token_here
+bash tests/run_all_verifications.sh
 ```
 
-See `tests/verification_combined/README.md` for full details.
+To run a single suite:
 
-### verification2 — Variant caller compatibility
+```bash
+bash tests/run_all_verifications.sh --only verification1
+bash tests/run_all_verifications.sh --only verification3
+```
 
-Located in `tests/verification2/`. Tests the pipeline against VCFs from four different variant callers (GATK MuTect2, Strelka, SomaticSniper, Pisces) using SEQC2 benchmark samples, verifying that SMART correctly handles different VCF formats, FILTER field conventions, and column orderings.
+---
+
+### Verification 1 — Field-level API verification
+
+Located in `tests/verification1/`. Contains 18 curated variants (14 SNV/indel + 4 CNA) covering key clinical scenarios across NRAS, IDH1, PIK3CA, EGFR, BRAF, GNAQ, PTEN, KRAS, BRCA2, DICER1, TP53, ERBB2, MET, CDKN2A, and CDK4.
+
+After running the pipeline, `verify.py` cross-checks the MAF output against live external APIs:
+
+- **OncoKB module** — queries `oncokb.org/api/v1` for each variant; compares 23 fields including oncogenicity, mutation effect, all treatment/FDA/diagnostic/prognostic levels, and summaries
+- **VEP module** — queries `rest.ensembl.org` for each SNV/indel; compares 14 fields including consequence, HGVSc/HGVSp, SIFT, PolyPhen, exon number, and canonical flag
+- **CIViC module** — queries the CIViC GraphQL API for each variant; compares variant type, consequence, gene, and clinical significance
+
+All modules report PASS / MISMATCH per field with a coverage report identifying which fields were testable and which were always empty.
+
+```bash
+python tests/verification1/verify.py \
+    --maf  tests/verification1/output/output/Final_result_tier1.maf \
+    --token $ONCOKB_TOKEN \
+    --output tests/verification1/results.tsv
+```
+
+See `tests/verification1/README.md` for full details.
+
+---
+
+### Verification 2 — Variant caller compatibility
+
+Located in `tests/verification2/`. Tests the pipeline against VCFs from four different variant callers (GATK MuTect2, Strelka, SomaticSniper, Pisces) using SEQC2 benchmark samples, verifying that SMART correctly handles different VCF formats, FILTER field conventions, and column orderings. This suite is run manually (see `tests/verification2/README.md`).
+
+---
+
+### Verification 3 — Transcript prioritisation impact
+
+Located in `tests/verification3/`. Demonstrates that the preferred-transcript whitelist meaningfully changes the VEP annotation output and, downstream, the OncoKB clinical interpretation. The pipeline is run twice on the same three-variant VCF using two different transcript files, then `verify.py` confirms:
+
+1. **DIFFER** — targeted variants produce different VEP annotations between runs (the whitelist drives annotation selection)
+2. **PASS** — each run's annotation is confirmed correct by the Ensembl REST API for the expected transcript
+3. **OncoKB impact** — the annotation difference propagates to a different clinical result (e.g. LEVEL_1 vs Unknown, CDKN2A LEVEL_4 vs CDKN2B with no level)
+
+| Variant | Transcript A | Result A | Transcript B | Result B |
+|---|---|---|---|---|
+| EGFR L858R | NM_005228.5 | p.Leu858Arg (LEVEL_1) | NM_001346897.2 | p.Leu813Arg (Unknown) |
+| TP53 R175H | NM_000546.6 | p.Arg175His (hotspot) | NM_001126115.2 | p.Arg43His (not a hotspot) |
+| CDKN2A/B DEL | NM_058195.4 | CDKN2A (LEVEL_4) | NM_004936.4 | CDKN2B (no level) |
+
+```bash
+export ONCOKB_TOKEN=your_token_here
+bash tests/verification3/run_verification3.sh
+```
+
+See `tests/verification3/README.md` for full details.
+
+---
 
 ### verify_maf.py — Expected variant presence
 

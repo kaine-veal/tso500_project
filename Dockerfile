@@ -91,6 +91,7 @@ RUN chmod +x /opt/smart/scripts/*.sh /opt/smart/scripts/*.py 2>/dev/null || true
 WORKDIR /output
 
 # ---------- Entrypoint ----------
+COPY VERSION /opt/smart/VERSION
 COPY entrypoint.sh /opt/smart/entrypoint.sh
 RUN chmod +x /opt/smart/entrypoint.sh
 
