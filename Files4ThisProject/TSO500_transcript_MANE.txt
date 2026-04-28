@@ -4,6 +4,16 @@
 #
 # This analysis was suggested by the team to determine how many TSO500 transcripts
 # correspond to MANE Select or MANE Plus Clinical transcripts.
+#The 4 NOT_FOUND transcripts — genes and their MANE equivalents:
+
+#TSO500 transcript	Gene	MANE Select (v1.5)	MANE Plus Clinical
+#NM_001014431.2	AKT1	NM_001382430.1	—
+#NM_001127500.3	MET	NM_000245.4	—
+#NM_001130442.3	HRAS	NM_005343.4	NM_176795.5
+#NM_001174067.2	FGFR1	NM_023110.3	—
+#Key observation — MET is a special case:
+
+# NM_000245.4 (MANE Select for MET) is already in the TSO500 transcript list as a separate entry. So MET actually has both transcripts in the list 
 
 TSO500_transcripts	#NCBI_GeneID	Ensembl_Gene	HGNC_ID	symbol	name	RefSeq_nuc	RefSeq_prot	Ensembl_nuc	Ensembl_prot	MANE_status	GRCh38_chr	chr_start	chr_end	chr_strand
 NM_000248.4	GeneID:4286	ENSG00000187098.20	HGNC:7105	MITF	melanocyte inducing transcription factor	NM_000248.4	NP_000239.1	ENST00000394351.9	ENSP00000377880.3	MANE Plus Clinical	NC_000003.12	69936592	69968332	+
@@ -524,4 +534,4 @@ NM_213647.3	GeneID:2264	ENSG00000160867.17	HGNC:3691	FGFR4	fibroblast growth fac
 NM_001014431.2	NOT_FOUND													
 NM_001127500.3	NOT_FOUND													
 NM_001130442.3	NOT_FOUND													
-NM_001174067.2	NOT_FOUND													
+NM_001174067.2	NOT_FOUND

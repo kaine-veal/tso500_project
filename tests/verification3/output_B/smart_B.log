@@ -25,6 +25,7 @@ Config:
   Liftover:         DISABLED
   Clean tmp:        DISABLED
   Clean tables:     ENABLED
+  Parallel nodes:   1
   Transcript file:  /data/transcripts_B.txt
   Config file:      /data/Config.yaml
   Reference dir:    /refs
@@ -39,45 +40,11 @@ Number of VCF files found: 1
 VCF files:
 /data/verification3.vcf.gz
 ------------------------------------------------------------
-###################### Processing: verification3 ##########################################
->>> PASS filtering: verification3
->>> LiftOver DISABLED: verification3
->>> VEP annotation: verification3
-2026-04-17 08:38:54 - INFO: BAM-edited cache detected, enabling --use_transcript_ref; use --use_given_ref to override this
->>> OncoKB annotation: verification3
-
-✔ Annotation Mode: Generic Query
-✔ Detected tumor type used for OncoKB: UNKNOWN
-✔ Using 3 preferred NM transcripts (version agnostic).
-✔ Parsed 152 CSQ fields from VCF header
-  SYMBOL=3, Feature=6, HGVSp=11, MANE_SELECT=26, MANE_PLUS_CLINICAL=27, MANE=25
-  [Variant chr7:55191822 T>G] Selected: MANE Select. Gene: EGFR. Tx: ENST00000275493. Protein: L858R
-  [Variant chr17:7675088 C>T] Selected: MANE Select. Gene: TP53. Tx: ENST00000269305. Protein: R175H
-  [Variant chr9:21990000 N><DEL>] Selected: Preferred List Match (NM/MANE Select). Gene: CDKN2B. Tx: ENST00000276925. Protein: None
-
-📊 OncoKB Annotation Summary:
-  Total variants processed: 3
-  Mutations annotated:      2
-  CNVs annotated:           1
-  Overall annotation rate:  100.00%
-
-✔ OncoKB-annotated VCF written to: /output/OncoKB_VCF/verification3.oncoKB.vcf
->>> VCF2TABLE: verification3
->>> MafAnnotator: verification3
-INFO:MafAnnotator:annotating /output/Table/verification3.oncoKB.csv ...
-INFO:AnnotatorCore:Your OncoKB API token is valid and will expire on 2026-06-01 18:42:20 UTC
-INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 1
-INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 2
-INFO:AnnotatorCore:Cancer type for the sample should be defined for a more accurate result. 	Line 3
-INFO:MafAnnotator:done!
---- verification3 complete ---
+>>> Launching: verification3 (log: /output/logs/verification3.log)
+>>> OK: verification3
 ###################### Post Analysis ##########################################
 /opt/smart/scripts/post_analysis.py:528: FutureWarning: Downcasting behavior in `replace` is deprecated and will be removed in a future version. To retain the old behavior, explicitly call `result.infer_objects(copy=False)`. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
   df = df.replace({"[]": "", "%3D": "="}, regex=False).infer_objects(copy=False)
-/opt/smart/scripts/post_analysis.py:773: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise an error in a future version of pandas. Value '['28892048;26183406;20118908']' has dtype incompatible with float64, please explicitly cast to a compatible dtype first.
-  merged.loc[cna_mask, "MUTATION_EFFECT_CITATIONS"] = (
-/opt/smart/scripts/post_analysis.py:813: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise an error in a future version of pandas. Value '['']' has dtype incompatible with float64, please explicitly cast to a compatible dtype first.
-  merged.loc[hs_empty, "HIGHEST_SENSITIVE_LEVEL"] = merged.loc[hs_empty, "ONCOKB_SENS_LVL"].fillna("")
 Reading: ./FINAL_Table/verification3.oncoKB.maf
 
 === Expanding OncoKB JSON array columns ===
@@ -85,7 +52,7 @@ Reading: ./FINAL_Table/verification3.oncoKB.maf
   ONCOKB_diagnosticImplications: all rows empty — skipping expansion
   ONCOKB_prognosticImplications: all rows empty — skipping expansion
 
-Filled 2 empty ONCOKB_highestFdaLevel values from ONCOKB_FDA_LVL
+Filled 3 empty ONCOKB_highestFdaLevel values from ONCOKB_FDA_LVL
 
 Applied CNA overwrite fix for 1 CNA rows (VARIANT_IN_ONCOKB, ONCOGENIC, MUTATION_EFFECT, treatment levels, highest levels)
 

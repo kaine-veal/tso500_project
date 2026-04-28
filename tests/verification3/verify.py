@@ -24,8 +24,15 @@ Three test cases are built into the VCF:
     Transcript B: NM_001126115.2 → c.128G>A / p.Arg43His   (completely different position)
 
   MantaDEL:CDKN2A_CDKN2B  (chr9:21990000-22005000 <DEL>)
-    Transcript A: NM_058195.4 → annotated as CDKN2A deletion
-    Transcript B: NM_004936.4 → annotated as CDKN2B deletion (different gene reported)
+    Transcript A: NM_058195.4 → annotated as CDKN2A deletion (LEVEL_4 in OncoKB)
+    Transcript B: NM_004936.4 → annotated as CDKN2B deletion (no treatment level)
+
+  FGFR1_N546K  (chr8:38417331 G>T)
+    A real TSO500 case: NM_001174067.2 is used by the TSO500 panel but is NOT
+    a MANE transcript. The MANE Select for FGFR1 is NM_023110.3.
+    Transcript A: NM_023110.3    → c.1638C>A / p.Asn546Lys  (MANE Select; Unknown in OncoKB)
+    Transcript B: NM_001174067.2 → c.1731C>A / p.Asn577Lys  (TSO500 non-MANE; Likely Oncogenic
+                                   LEVEL_4 in OncoKB — false-positive risk from wrong transcript)
 
 Usage
 -----
@@ -99,6 +106,36 @@ EXPECTED = {
             "oncokb": {
                 "oncogenic":   "Unknown",
                 "hotspot":     False,
+            },
+        },
+    },
+    # FGFR1 N546K — chr8:38417331 G>T
+    # Demonstrates a non-MANE TSO500 transcript (NM_001174067.2, variant 14)
+    # producing a different protein position (N577K) that is coincidentally
+    # flagged as Likely Oncogenic LEVEL_4 by OncoKB, while the MANE Select
+    # (NM_023110.3) gives the canonical N546K annotation which OncoKB does not
+    # yet classify. This is a false-positive risk of using non-MANE transcripts.
+    "FGFR1_N546K": {
+        "A": {
+            "NM_Transcript":  "NM_023110",
+            "HGVSc":          "c.1638C>A",
+            "HGVSp":          "p.Asn546Lys",
+            "Hugo_Symbol":    "FGFR1",
+            "oncokb": {
+                "oncogenic":             "Unknown",
+                "highestSensitiveLevel": None,
+                "mutationEffect":        "Unknown",
+            },
+        },
+        "B": {
+            "NM_Transcript":  "NM_001174067",
+            "HGVSc":          "c.1731C>A",
+            "HGVSp":          "p.Asn577Lys",
+            "Hugo_Symbol":    "FGFR1",
+            "oncokb": {
+                "oncogenic":             "Likely Oncogenic",
+                "highestSensitiveLevel": "LEVEL_4",
+                "mutationEffect":        "Likely Gain-of-function",
             },
         },
     },

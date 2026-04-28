@@ -39,6 +39,9 @@ Options:
   --liftover / --no-liftover       Enable/disable liftover (default: ON)
   --clean-tmp / --keep-tmp         Delete/keep intermediate files (default: clean)
   --clean-tables / --keep-tables   Delete/keep table files after post_analysis (default: clean)
+  --jobs N                         Number of samples to process in parallel on this
+                                   machine (default: 1 = sequential). Each job is one
+                                   sample; all jobs share the same CPU and RAM.
   --help                           Show this help
 
 Volumes:
@@ -71,6 +74,7 @@ DO_PASS_FILTER=1
 DO_LIFTOVER=1
 CLEAN_TMP=1
 CLEAN_TABLES=1
+JOBS=1
 TRANSCRIPTS_FILE=""
 REF_DIR=""
 CONFIG_FILE=""
@@ -110,6 +114,12 @@ while [[ $# -gt 0 ]]; do
         --keep-tables)
             CLEAN_TABLES=0
             shift
+            ;;
+        --jobs)
+            [[ $# -lt 2 ]] && { echo "ERROR: --jobs requires a number"; exit 2; }
+            JOBS="$2"
+            [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: --jobs must be a positive integer"; exit 2; }
+            shift 2
             ;;
         --input-dir)
             [[ $# -lt 2 ]] && { echo "ERROR: --input-dir requires a path"; exit 2; }
@@ -216,6 +226,7 @@ echo "  PASS filter:      $([[ $DO_PASS_FILTER -eq 1 ]] && echo ENABLED || echo 
 echo "  Liftover:         $([[ $DO_LIFTOVER -eq 1 ]] && echo ENABLED || echo DISABLED)"
 echo "  Clean tmp:        $([[ $CLEAN_TMP -eq 1 ]] && echo ENABLED || echo DISABLED)"
 echo "  Clean tables:     $([[ $CLEAN_TABLES -eq 1 ]] && echo ENABLED || echo DISABLED)"
+echo "  Parallel jobs:    $JOBS"
 echo "  Transcript file:  $TRANSCRIPTS_FILE"
 echo "  Config file:      $CONFIG_FILE"
 echo "  Reference dir:    $REF_DIR"
@@ -234,8 +245,9 @@ ANNOTATED_DIR="${OUTPUT_DIR_BASE}/AnnotatedVcf"
 ONCOKB_DIR="${OUTPUT_DIR_BASE}/OncoKB_VCF"
 TABLE_DIR="${OUTPUT_DIR_BASE}/Table"
 FINAL_TABLE_DIR="${OUTPUT_DIR_BASE}/FINAL_Table"
+LOGS_DIR="${OUTPUT_DIR_BASE}/logs"
 
-mkdir -p "$OUTPUT_DIR_BASE" "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$ONCOKB_DIR" "$TABLE_DIR" "$FINAL_TABLE_DIR"
+mkdir -p "$OUTPUT_DIR_BASE" "$FILTERED_DIR" "$OUTPUT_DIR" "$REJECT_DIR" "$ANNOTATED_DIR" "$ONCOKB_DIR" "$TABLE_DIR" "$FINAL_TABLE_DIR" "$LOGS_DIR"
 
 echo "Cleaning previous results..."
 rm -f "$OUTPUT_DIR"/*gz "$OUTPUT_DIR"/*tbi "$OUTPUT_DIR"/*.vcf 2>/dev/null || true
@@ -273,17 +285,27 @@ if [[ $VCF_COUNT -eq 0 ]]; then
     exit 1
 fi
 
-for vcf in "$INPUT_DIR"/*.vcf.gz; do
-    [[ -e "$vcf" ]] || continue
+# ==============================================================================
+# process_sample VCF LOG_FILE
+#   Runs the full per-sample pipeline in a subshell (safe for backgrounding).
+#   Writes its variant-count row to COUNT_FILE.<sample> so parallel runs do
+#   not race on the shared COUNT_FILE; the main process merges them afterwards.
+#   All stdout/stderr is appended to LOG_FILE.
+# ==============================================================================
+process_sample() {
+    local vcf="$1"
+    local log_file="$2"
+    local basename_
+    basename_=$(basename "$vcf")
+    local sample="${basename_%.vcf.gz}"
 
-    basename=$(basename "$vcf")
-    sample="${basename%.vcf.gz}"
-
+    {
     echo "###################### Processing: $sample ##########################################"
 
     # --- PASS filtering ---
-    FILTERED_VCF="$FILTERED_DIR/${sample}.PASS_only.vcf.gz"
-    FILTERED_VCF_TBI="${FILTERED_VCF}.tbi"
+    local FILTERED_VCF="$FILTERED_DIR/${sample}.PASS_only.vcf.gz"
+    local FILTERED_VCF_TBI="${FILTERED_VCF}.tbi"
+    local INPUT_FOR_NEXT
 
     if [[ $DO_PASS_FILTER -eq 1 ]]; then
         echo ">>> PASS filtering: $sample"
@@ -298,15 +320,15 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
     fi
 
     # --- LiftOver ---
-    LIFTED_VCF_GZ="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf.gz"
-    LIFTED_VCF="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf"
-    LIFTED_VCF_TBI="${LIFTED_VCF_GZ}.tbi"
-    REJECTED_VCF="$REJECT_DIR/${sample}.hg19tohg38_rejected.vcf.gz"
-    REJECTED_VCF_TBI="${REJECTED_VCF}.tbi"
+    local LIFTED_VCF_GZ="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf.gz"
+    local LIFTED_VCF="$OUTPUT_DIR/${sample}.hg19tohg38_liftover.vcf"
+    local LIFTED_VCF_TBI="${LIFTED_VCF_GZ}.tbi"
+    local REJECTED_VCF="$REJECT_DIR/${sample}.hg19tohg38_rejected.vcf.gz"
+    local REJECTED_VCF_TBI="${REJECTED_VCF}.tbi"
+    local VEP_INPUT
 
     if [[ $DO_LIFTOVER -eq 1 ]]; then
         echo ">>> LiftOver: $sample"
-        # Direct GATK call (no apptainer)
         gatk LiftoverVcf \
             -C "$CHAIN" \
             -I "$INPUT_FOR_NEXT" \
@@ -322,9 +344,9 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
         VEP_INPUT="$INPUT_FOR_NEXT"
     fi
 
-    # --- VEP Annotation (direct call, no apptainer) ---
+    # --- VEP Annotation ---
     echo ">>> VEP annotation: $sample"
-    ANNOTATED_VCF="$ANNOTATED_DIR/${sample}_annotated.vcf"
+    local ANNOTATED_VCF="$ANNOTATED_DIR/${sample}_annotated.vcf"
     vep \
         -i "$VEP_INPUT" \
         -o "$ANNOTATED_VCF" \
@@ -343,7 +365,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 
     # --- OncoKB annotation ---
     echo ">>> OncoKB annotation: $sample"
-    ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
+    local ONCOKB_VCF="$ONCOKB_DIR/${sample}.oncoKB.vcf"
     python3 "$SCRIPT_DIR/oncokb2.0.py" "$ANNOTATED_VCF" "$ONCOKB_VCF" \
         --oncokb_token "$ONCOKB_TOKEN" \
         --tumor_mode generic \
@@ -351,7 +373,7 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 
     # --- VCF to Table ---
     echo ">>> VCF2TABLE: $sample"
-    TABLE_CSV="$TABLE_DIR/${sample}.oncoKB.csv"
+    local TABLE_CSV="$TABLE_DIR/${sample}.oncoKB.csv"
     python3 "$SCRIPT_DIR/vcf2table.py" \
         --vcf "$ONCOKB_VCF" \
         --transcripts "$TRANSCRIPTS_FILE" \
@@ -360,13 +382,14 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
 
     # --- MafAnnotator ---
     echo ">>> MafAnnotator: $sample"
-    ANNOTATED_MAF="$FINAL_TABLE_DIR/${sample}.oncoKB.maf"
+    local ANNOTATED_MAF="$FINAL_TABLE_DIR/${sample}.oncoKB.maf"
     python3 /opt/oncokb-annotator/MafAnnotator.py \
         -i "$TABLE_CSV" \
         -o "$ANNOTATED_MAF" \
         -b "$ONCOKB_TOKEN"
 
-    # --- Variant counts ---
+    # --- Variant counts (written to per-sample temp file to avoid concurrent writes) ---
+    local ORIGINAL_COUNT PASS_COUNT LIFTED_COUNT ANNOTATED_COUNT ONCOKB_COUNT TABLE_COUNT
     ORIGINAL_COUNT=$(zgrep -vc "^#" "$vcf")
     if [[ $DO_PASS_FILTER -eq 1 ]]; then
         PASS_COUNT=$(zgrep -vc "^#" "$FILTERED_VCF")
@@ -382,7 +405,8 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
     ONCOKB_COUNT=$(grep -vc "^#" "$ONCOKB_VCF")
     TABLE_COUNT=$(( $(wc -l < "$TABLE_CSV") - 1 ))
 
-    echo -e "${sample}\t${ORIGINAL_COUNT}\t${PASS_COUNT}\t${LIFTED_COUNT}\t${ANNOTATED_COUNT}\t${ONCOKB_COUNT}\t${TABLE_COUNT}" >> "$COUNT_FILE"
+    echo -e "${sample}\t${ORIGINAL_COUNT}\t${PASS_COUNT}\t${LIFTED_COUNT}\t${ANNOTATED_COUNT}\t${ONCOKB_COUNT}\t${TABLE_COUNT}" \
+        > "${COUNT_FILE}.${sample}"
 
     # --- Cleanup ---
     if [[ $CLEAN_TMP -eq 1 ]]; then
@@ -395,6 +419,56 @@ for vcf in "$INPUT_DIR"/*.vcf.gz; do
     fi
 
     echo "--- $sample complete ---"
+    } >> "$log_file" 2>&1
+}
+
+# ==============================================================================
+# Parallel sample processing (--nodes controls concurrency).
+# Uses wait -n (bash >= 4.3) to drain one slot before launching the next job.
+# Exit statuses are collected via per-PID wait in the post-loop phase.
+# ==============================================================================
+declare -a ALL_PIDS=()
+declare -a ALL_SAMPLES=()
+RUNNING=0
+
+for vcf in "$INPUT_DIR"/*.vcf.gz; do
+    [[ -e "$vcf" ]] || continue
+    basename_=$(basename "$vcf")
+    sample="${basename_%.vcf.gz}"
+    LOG_FILE="${LOGS_DIR}/${sample}.log"
+
+    # Throttle: wait for one slot to free up before launching the next job
+    if (( RUNNING >= JOBS )); then
+        wait -n 2>/dev/null || true
+        (( RUNNING-- )) || true
+    fi
+
+    echo ">>> Launching: $sample (log: $LOG_FILE)"
+    process_sample "$vcf" "$LOG_FILE" &
+    ALL_PIDS+=($!)
+    ALL_SAMPLES+=("$sample")
+    (( RUNNING++ )) || true
+done
+
+# Collect exit statuses for all launched jobs
+PIPELINE_FAILED=0
+for i in "${!ALL_PIDS[@]}"; do
+    if ! wait "${ALL_PIDS[$i]}"; then
+        echo "ERROR: Sample '${ALL_SAMPLES[$i]}' failed — see log: ${LOGS_DIR}/${ALL_SAMPLES[$i]}.log"
+        PIPELINE_FAILED=1
+    else
+        echo ">>> OK: ${ALL_SAMPLES[$i]}"
+    fi
+done
+[[ $PIPELINE_FAILED -eq 1 ]] && exit 1
+
+# Merge per-sample count rows into the shared COUNT_FILE (preserving launch order)
+for sample in "${ALL_SAMPLES[@]}"; do
+    count_tmp="${COUNT_FILE}.${sample}"
+    if [[ -f "$count_tmp" ]]; then
+        cat "$count_tmp" >> "$COUNT_FILE"
+        rm -f "$count_tmp"
+    fi
 done
 
 echo "###################### Post Analysis ##########################################"

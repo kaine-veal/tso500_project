@@ -157,6 +157,30 @@ if [[ -z "$ONLY" || "$ONLY" == "verification3" ]]; then
     fi
 fi
 
+# ── Verification 4 — Parallel processing (--nodes) ──────────────────────────
+if [[ -z "$ONLY" || "$ONLY" == "verification4" ]]; then
+    V4_DIR="$SCRIPT_DIR/verification4"
+    V4_RESULTS="$V4_DIR/results.tsv"
+
+    echo ""
+    echo "================================================================"
+    echo " VERIFICATION 4: Parallel processing (--nodes 2)"
+    echo "================================================================"
+
+    SMART_IMAGE="$IMAGE" REFS_DIR="$REFS_DIR" ONCOKB_TOKEN="$TOKEN" \
+        bash "$V4_DIR/run_verification4.sh"
+
+    failures=$(tail -n +2 "$V4_RESULTS" 2>/dev/null \
+        | awk -F'\t' '$2 == "FAIL"' | wc -l | tr -d ' ')
+    if [[ "$failures" -eq 0 ]]; then
+        RESULTS+=("  verification4: PASS")
+        PASS_COUNT=$((PASS_COUNT + 1))
+    else
+        RESULTS+=("  verification4: FAIL (${failures} failed checks — see $V4_RESULTS)")
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""
 echo "████████████████████████████████████████████████████████████"

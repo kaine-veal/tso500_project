@@ -47,6 +47,32 @@ This logic applies to both SNV/indel and CNA variants, ensuring consistent gene 
 
 ---
 
+> [!WARNING]
+> **Known limitation (v0.1.0) — one transcript selected per variant, multiple matches silently discarded**
+>
+> When a variant overlaps more than one transcript in the preferred whitelist, the pipeline
+> selects **only the first matching transcript** (in the order VEP reports consequences) and
+> discards all others. The variant appears **once** in the output.
+>
+> This is clinically significant for genes with multiple biologically distinct isoforms in
+> the whitelist. The most affected gene in the TSO500 panel is **CDKN2A**, which has two
+> independent proteins encoded at the same locus:
+>
+> - `NM_000077.5` — p16/INK4A (CDK4/6 inhibitor; MANE Select)
+> - `NM_058195.4` — p14ARF (MDM2/TP53 pathway; MANE Plus Clinical)
+>
+> A variant affecting both isoforms will be reported under one of them only, depending on
+> which VEP lists first. The clinical interpretation of the discarded isoform is lost without
+> warning.
+>
+> **Workaround:** run the pipeline twice with different transcript files (as demonstrated in
+> `tests/verification3/`) to manually compare annotations across isoforms.
+>
+> **This will be addressed in v0.2.0** by producing one output row per matching preferred
+> transcript when a variant overlaps multiple whitelist entries.
+
+---
+
 ## What's Inside the Container
 
 | Tool | Version | Purpose |
@@ -182,6 +208,10 @@ Options:
   --clean-tmp / --keep-tmp         Delete/keep intermediate files (default: clean)
   --clean-tables / --keep-tables   Delete/keep per-sample tables after
                                    post_analysis merging (default: clean)
+  --jobs N                         Number of samples to process in parallel on this
+                                   machine (default: 1 = sequential). Requires
+                                   internet access for OncoKB — not suitable for
+                                   HPC compute nodes without internet.
   --help                           Show help
 ```
 
@@ -305,7 +335,7 @@ docker run --rm monkiky/smart:latest cat /app/VERSION
 
 ## Testing & Verification
 
-The `tests/` directory contains three independent verification suites plus a shared utility. All automated suites can be run together:
+The `tests/` directory contains four independent verification suites plus a shared utility. All automated suites can be run together:
 
 ```bash
 export ONCOKB_TOKEN=your_token_here
@@ -317,6 +347,7 @@ To run a single suite:
 ```bash
 bash tests/run_all_verifications.sh --only verification1
 bash tests/run_all_verifications.sh --only verification3
+bash tests/run_all_verifications.sh --only verification4
 ```
 
 ---
@@ -360,9 +391,10 @@ Located in `tests/verification3/`. Demonstrates that the preferred-transcript wh
 
 | Variant | Transcript A | Result A | Transcript B | Result B |
 |---|---|---|---|---|
-| EGFR L858R | NM_005228.5 | p.Leu858Arg (LEVEL_1) | NM_001346897.2 | p.Leu813Arg (Unknown) |
-| TP53 R175H | NM_000546.6 | p.Arg175His (hotspot) | NM_001126115.2 | p.Arg43His (not a hotspot) |
+| EGFR L858R | NM_005228.5 (MANE) | p.Leu858Arg (LEVEL_1) | NM_001346897.2 | p.Leu813Arg (Unknown) |
+| TP53 R175H | NM_000546.6 (MANE) | p.Arg175His (hotspot) | NM_001126115.2 | p.Arg43His (not a hotspot) |
 | CDKN2A/B DEL | NM_058195.4 | CDKN2A (LEVEL_4) | NM_004936.4 | CDKN2B (no level) |
+| FGFR1 N546K | NM_023110.3 (MANE) | p.Asn546Lys (Unknown) | NM_001174067.2 (TSO500 non-MANE) | p.Asn577Lys (Likely Oncogenic, LEVEL_4 — false positive) |
 
 ```bash
 export ONCOKB_TOKEN=your_token_here
@@ -370,6 +402,35 @@ bash tests/verification3/run_verification3.sh
 ```
 
 See `tests/verification3/README.md` for full details.
+
+---
+
+### Verification 4 — Parallel job processing (`--jobs`)
+
+Located in `tests/verification4/`. Verifies that `--jobs N` correctly processes
+multiple samples in parallel on a single machine, producing identical output to a
+sequential run.
+
+The `--jobs N` flag runs up to N samples concurrently as background processes on
+the **same machine**, sharing its CPU and RAM. It is not distributed computing —
+all jobs run inside the same Docker container. This is designed for machines with
+internet access, since OncoKB requires internet connectivity that is typically
+unavailable on HPC compute nodes.
+
+The test copies `verification1.vcf.gz` twice under different sample names and
+runs with `--jobs 2`. `verify.py` confirms — without any external API calls:
+
+- Both per-sample log files exist in `logs/` and contain the completion marker
+- `variant_counts.txt` has exactly one data row per sample (count-merge worked)
+- Both output MAFs exist and are content-identical after excluding
+  `Tumor_Sample_Barcode` (same input → same annotations)
+
+```bash
+export ONCOKB_TOKEN=your_token_here
+bash tests/verification4/run_verification4.sh
+```
+
+See `tests/verification4/README.md` for resource guidance and implementation details.
 
 ---
 
