@@ -2,7 +2,7 @@
 # ==============================================================================
 # run_all_verifications.sh — Run all SMART verification suites
 #
-# Runs verification1, verification3, and reports results.
+# Runs unit tests + verification1, verification3, verification4, and reports results.
 # verification2 is a manual compatibility check (multiple callers, no automated
 # verify.py) and is excluded from automated runs.
 #
@@ -13,7 +13,7 @@
 # Options:
 #   --image IMAGE    Docker image to use (default: monkiky/smart:latest)
 #   --refs  DIR      Reference directory   (default: /Volumes/ExternalSSD/refs)
-#   --only  NAME     Run only one suite: verification1 | verification3
+#   --only  NAME     Run only one suite: unit | verification1 | verification3 | verification4
 # ==============================================================================
 set -euo pipefail
 
@@ -74,6 +74,22 @@ run_suite() {
 
     RESULTS+=("  ${name}: ${status}")
 }
+
+# ── Unit tests — Multi-transcript (no Docker, no token) ─────────────────────
+if [[ -z "$ONLY" || "$ONLY" == "unit" ]]; then
+    echo ""
+    echo "================================================================"
+    echo " UNIT TESTS: Multi-transcript feature (test_multi_transcript.py)"
+    echo "================================================================"
+
+    if python3 "$SCRIPT_DIR/test_multi_transcript.py" -v 2>&1; then
+        RESULTS+=("  unit tests (multi-transcript): PASS")
+        PASS_COUNT=$((PASS_COUNT + 1))
+    else
+        RESULTS+=("  unit tests (multi-transcript): FAIL")
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+fi
 
 # ── Verification 1 — Field-level API verification ────────────────────────────
 if [[ -z "$ONLY" || "$ONLY" == "verification1" ]]; then
@@ -157,14 +173,14 @@ if [[ -z "$ONLY" || "$ONLY" == "verification3" ]]; then
     fi
 fi
 
-# ── Verification 4 — Parallel processing (--nodes) ──────────────────────────
+# ── Verification 4 — Parallel processing (--jobs) ───────────────────────────
 if [[ -z "$ONLY" || "$ONLY" == "verification4" ]]; then
     V4_DIR="$SCRIPT_DIR/verification4"
     V4_RESULTS="$V4_DIR/results.tsv"
 
     echo ""
     echo "================================================================"
-    echo " VERIFICATION 4: Parallel processing (--nodes 2)"
+    echo " VERIFICATION 4: Parallel processing (--jobs 2)"
     echo "================================================================"
 
     SMART_IMAGE="$IMAGE" REFS_DIR="$REFS_DIR" ONCOKB_TOKEN="$TOKEN" \

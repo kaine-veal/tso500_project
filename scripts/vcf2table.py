@@ -189,6 +189,14 @@ def main(args):
 
             csq_raw = info.pop("CSQ", None)
 
+            # oncokb2.0.py pins the transcript it used via this INFO tag.
+            # When present it takes priority over the whitelist selection so
+            # both scripts always agree on which CSQ entry the row represents.
+            # Strip it from info so it doesn't appear twice in the output row.
+            pinned_nm = info.pop("ONCOKB_PREFERRED_TRANSCRIPT", "") or ""
+            if pinned_nm == ".":
+                pinned_nm = ""
+
             # Initialize row with all non-INFO VCF columns
             row = dict(record)
 
@@ -218,16 +226,30 @@ def main(args):
                             nm = vep[key].split(".")[0]
                             break
 
+                    # VEP annotates RefSeq transcripts directly in Feature
+                    # (e.g. NM_001346897.2) without populating MANE fields.
+                    if not nm:
+                        feat = vep.get("Feature", "")
+                        if feat.startswith("NM_"):
+                            nm = feat.split(".")[0]
+
                     if not nm and vep.get("HGVSc", "").startswith("NM_"):
                         nm = vep["HGVSc"].split(":")[0].split(".")[0]
 
-                    if nm in nm_transcripts:
+                    if pinned_nm:
+                        # Use the transcript pinned by oncokb2.0.py
+                        if nm == pinned_nm:
+                            selected_vep = vep
+                            nm_selected = nm
+                            break
+                    elif nm in nm_transcripts:
+                        # Standard whitelist-based selection
                         selected_vep = vep
                         nm_selected = nm
                         break
 
                 if not nm_selected and first_vep is not None:
-                    # No preferred transcript found — use the first CSQ record
+                    # No match found — use the first CSQ record
                     selected_vep = first_vep
                     nm_selected = first_nm
 

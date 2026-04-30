@@ -47,29 +47,22 @@ This logic applies to both SNV/indel and CNA variants, ensuring consistent gene 
 
 ---
 
-> [!WARNING]
-> **Known limitation (v0.1.0) — one transcript selected per variant, multiple matches silently discarded**
+> [!NOTE]
+> **v0.2.0 — multi-transcript output: one row per preferred transcript**
 >
 > When a variant overlaps more than one transcript in the preferred whitelist, the pipeline
-> selects **only the first matching transcript** (in the order VEP reports consequences) and
-> discards all others. The variant appears **once** in the output.
+> now produces **one output row per matching transcript**, each with its own VEP annotation
+> and independent OncoKB query.
 >
-> This is clinically significant for genes with multiple biologically distinct isoforms in
-> the whitelist. The most affected gene in the TSO500 panel is **CDKN2A**, which has two
-> independent proteins encoded at the same locus:
+> This is clinically significant for genes with multiple biologically distinct isoforms.
+> The canonical example in the TSO500 panel is **CDKN2A**:
 >
 > - `NM_000077.5` — p16/INK4A (CDK4/6 inhibitor; MANE Select)
 > - `NM_058195.4` — p14ARF (MDM2/TP53 pathway; MANE Plus Clinical)
 >
-> A variant affecting both isoforms will be reported under one of them only, depending on
-> which VEP lists first. The clinical interpretation of the discarded isoform is lost without
-> warning.
->
-> **Workaround:** run the pipeline twice with different transcript files (as demonstrated in
-> `tests/verification3/`) to manually compare annotations across isoforms.
->
-> **This will be addressed in v0.2.0** by producing one output row per matching preferred
-> transcript when a variant overlaps multiple whitelist entries.
+> A variant affecting both isoforms now appears **twice** in the output — once for each
+> isoform — with the correct protein change and OncoKB evidence level for each.
+> The `NM_Transcript` column identifies which isoform each row represents.
 
 ---
 
@@ -122,7 +115,7 @@ SMART expects a reference directory with the following structure:
     └── 114_GRCh38/
 ```
 
-All reference files can be downloaded using the provided `get_ref/get_ref_files.sh` script.
+All reference files can be downloaded using the provided `utils/get_ref_files.sh` script (see [utils/README.md](utils/README.md)).
 
 ---
 
@@ -330,6 +323,18 @@ docker run --rm monkiky/smart:latest cat /app/VERSION
 | REVEL | 1.3 |
 | CIViC | nightly |
 | Reference genome | GRCh38 (Homo sapiens 114) |
+
+---
+
+## Utility Scripts
+
+The `utils/` directory contains standalone helper scripts that operate **outside** the Docker container. See [utils/README.md](utils/README.md) for full details.
+
+| Script | Purpose |
+|--------|---------|
+| `get_ref_files.sh` | Download and prepare all reference files required by the pipeline |
+| `civic_formating.py` | Convert CIViC nightly TSV into a bgzip-compressed, tabix-indexed VCF for VEP |
+| `get_oncokb_transcripts.py` | Fetch the canonical transcript (NM accession) OncoKB uses for every curated gene and write a ready-to-use transcript whitelist |
 
 ---
 

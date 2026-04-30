@@ -94,7 +94,7 @@ def _norm(v) -> str:
     if v is None:
         return ""
     s = str(v).strip()
-    return "" if s in ("nan", "None", "NA", "N/A") else s
+    return "" if s in ("nan", "None", "NA", "N/A", ".") else s
 
 
 def maf_value(row: pd.Series, col: str) -> str:

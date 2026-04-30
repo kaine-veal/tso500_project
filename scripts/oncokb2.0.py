@@ -29,6 +29,7 @@ import re
 import json
 import sys
 import argparse
+from typing import Optional
 import requests
 from cyvcf2 import VCF, Writer
 
@@ -111,7 +112,7 @@ REFERENCE_GENOME = "GRCh38"
 # Helpers
 # ---------------------------------------------------------
 
-def load_preferred_transcripts(file_path: str | None) -> set:
+def load_preferred_transcripts(file_path: Optional[str]) -> set:
     """
     Load a set of preferred NM IDs from a file, stripping version numbers.
     If no file is provided, return an empty set and print a warning.
@@ -219,7 +220,7 @@ def _extract_one_letter_protein(csq: str, hgvsp_index: int):
     return protein
 
 
-def find_preferred_csq_and_protein(
+def find_all_preferred_csq_matches(
     variant,
     csqs: str,
     preferred_tx: set,
@@ -228,87 +229,152 @@ def find_preferred_csq_and_protein(
     hgvsp_idx: int,
     mane_select_nm_idx: int,
     mane_plus_clinical_nm_idx: int,
-    mane_status_idx: int,
-):
+) -> list[dict]:
     """
-    Finds the best CSQ annotation using a 3-tier prioritization logic.
+    Tier 1 only: return ALL CSQ annotations whose NM ID appears in preferred_tx.
 
-    Returns: (gene, protein_change, selected_transcript, selection_reason)
+    Each entry: {"nm_id": str, "gene": str|None, "protein_change": str|None}
+    Deduplicates by NM ID — one entry per unique preferred transcript.
+    Returns empty list when no preferred transcripts are configured or none match.
+    """
+    if not csqs or not preferred_tx:
+        return []
+
+    matches = []
+    seen_nm: set[str] = set()
+    alt_string = ",".join(map(str, variant.ALT)) if variant.ALT else "."
+
+    for ann in csqs.split(","):
+        fields = ann.split("|")
+        nm_id = None
+
+        if mane_select_nm_idx >= 0 and len(fields) > mane_select_nm_idx:
+            candidate = fields[mane_select_nm_idx].split(".")[0].strip()
+            if candidate and candidate in preferred_tx:
+                nm_id = candidate
+
+        if nm_id is None and mane_plus_clinical_nm_idx >= 0 and len(fields) > mane_plus_clinical_nm_idx:
+            candidate = fields[mane_plus_clinical_nm_idx].split(".")[0].strip()
+            if candidate and candidate in preferred_tx:
+                nm_id = candidate
+
+        # VEP annotates some RefSeq transcripts directly in the Feature field
+        # (e.g. NM_001346897.2) without populating MANE fields.  Check Feature
+        # last so MANE-flagged matches still take priority.
+        if nm_id is None and feature_idx >= 0 and len(fields) > feature_idx:
+            candidate = fields[feature_idx].split(".")[0].strip()
+            if candidate.startswith("NM_") and candidate in preferred_tx:
+                nm_id = candidate
+
+        if nm_id and nm_id not in seen_nm:
+            seen_nm.add(nm_id)
+            gene = fields[symbol_idx] if len(fields) > symbol_idx else None
+            protein_change = _extract_one_letter_protein(ann, hgvsp_idx)
+            sys.stdout.write(
+                f"  [Variant {variant.CHROM}:{variant.POS} {variant.REF}>{alt_string}] "
+                f"Preferred match: {nm_id}. Gene: {gene}. Protein: {protein_change}\n"
+            )
+            matches.append({"nm_id": nm_id, "gene": gene, "protein_change": protein_change})
+
+    return matches
+
+
+def find_fallback_csq(
+    variant,
+    csqs: str,
+    symbol_idx: int,
+    feature_idx: int,
+    hgvsp_idx: int,
+    mane_select_nm_idx: int,
+    mane_plus_clinical_nm_idx: int,
+    mane_status_idx: int,
+) -> tuple:
+    """
+    Tier 2 + 3 fallback (used when no preferred-transcript match is found).
+
+    Tier 2 — MANE Select, then MANE Plus Clinical.
+    Tier 3 — first CSQ record reported by VEP.
+
+    Returns: (gene, protein_change, transcript, reason)
     """
     if not csqs:
         return None, None, None, "No CSQ provided"
 
     annotations = csqs.split(",")
-    selected_annotation = None
-    selection_reason = "Fallback (VEP Default)"
+    selected = None
+    reason = "Fallback (VEP Default)"
 
-    # --- TIER 1: PREFERRED TRANSCRIPTS (Match against NM IDs ignoring version) ---
-    if preferred_tx:
-        for ann in annotations:
-            fields = ann.split("|")
-
-            # Check MANE_SELECT NM ID
-            if mane_select_nm_idx >= 0 and len(fields) > mane_select_nm_idx:
-                current_nm_id_select = fields[mane_select_nm_idx].split(".")[0].strip()
-                if current_nm_id_select and current_nm_id_select in preferred_tx:
-                    selected_annotation = ann
-                    selection_reason = "Preferred List Match (NM/MANE Select)"
-                    break
-
-            # Check MANE_PLUS_CLINICAL NM ID
-            if (
-                selected_annotation is None
-                and mane_plus_clinical_nm_idx >= 0
-                and len(fields) > mane_plus_clinical_nm_idx
-            ):
-                current_nm_id_plus = fields[mane_plus_clinical_nm_idx].split(".")[0].strip()
-                if current_nm_id_plus and current_nm_id_plus in preferred_tx:
-                    selected_annotation = ann
-                    selection_reason = "Preferred List Match (NM/MANE Plus Clinical)"
-                    break
-
-    # --- TIER 2: MANE TRANSCRIPTS ---
-    if selected_annotation is None and mane_status_idx >= 0:
+    if mane_status_idx >= 0:
         for ann in annotations:
             fields = ann.split("|")
             if len(fields) > mane_status_idx and fields[mane_status_idx].replace("_", " ").lower() == "mane select":
-                selected_annotation = ann
-                selection_reason = "MANE Select"
+                selected = ann
+                reason = "MANE Select"
                 break
 
-        if selected_annotation is None:
+        if selected is None:
             for ann in annotations:
                 fields = ann.split("|")
-                if (
-                    len(fields) > mane_status_idx
-                    and fields[mane_status_idx].replace("_", " ").lower().startswith("mane plus clinical")
-                ):
-                    selected_annotation = ann
-                    selection_reason = "MANE Plus Clinical"
+                if len(fields) > mane_status_idx and fields[mane_status_idx].replace("_", " ").lower().startswith("mane plus clinical"):
+                    selected = ann
+                    reason = "MANE Plus Clinical"
                     break
 
-    # --- TIER 3: FALLBACK ---
-    if selected_annotation is None and annotations:
-        selected_annotation = annotations[0]
-        selection_reason = "Fallback (VEP Default)"
+    if selected is None and annotations:
+        selected = annotations[0]
 
-    if selected_annotation is None:
-        selection_reason = "No valid CSQ found"
-        return None, None, None, selection_reason
+    if selected is None:
+        return None, None, None, "No valid CSQ found"
 
-    fields = selected_annotation.split("|")
+    fields = selected.split("|")
     gene = fields[symbol_idx] if len(fields) > symbol_idx else None
-    selected_transcript = fields[feature_idx] if len(fields) > feature_idx else "N/A"
+    feature = fields[feature_idx] if len(fields) > feature_idx else "N/A"
+    protein_change = _extract_one_letter_protein(selected, hgvsp_idx)
 
-    protein_change = _extract_one_letter_protein(selected_annotation, hgvsp_idx)
+    # Prefer returning an NM ID so vcf2table.py can pin the right CSQ entry.
+    # Check MANE_SELECT and MANE_PLUS_CLINICAL first; fall back to Feature when
+    # it already is an NM ID (RefSeq-sourced entries); otherwise return ENST.
+    nm_id = ""
+    if mane_select_nm_idx >= 0 and len(fields) > mane_select_nm_idx:
+        m = fields[mane_select_nm_idx].split(".")[0].strip()
+        if m.startswith("NM_"):
+            nm_id = m
+    if not nm_id and mane_plus_clinical_nm_idx >= 0 and len(fields) > mane_plus_clinical_nm_idx:
+        m = fields[mane_plus_clinical_nm_idx].split(".")[0].strip()
+        if m.startswith("NM_"):
+            nm_id = m
+    if not nm_id and feature.startswith("NM_"):
+        nm_id = feature.split(".")[0]
+    transcript = nm_id or feature
 
     alt_string = ",".join(map(str, variant.ALT)) if variant.ALT else "."
     sys.stdout.write(
         f"  [Variant {variant.CHROM}:{variant.POS} {variant.REF}>{alt_string}] "
-        f"Selected: {selection_reason}. Gene: {gene}. Tx: {selected_transcript}. Protein: {protein_change}\n"
+        f"Fallback ({reason}). Gene: {gene}. Tx: {transcript}. Protein: {protein_change}\n"
     )
 
-    return gene, protein_change, selected_transcript, selection_reason
+    return gene, protein_change, transcript, reason
+
+
+def _apply_oncokb_info(variant, summary: dict, nm_id: str, query_type: str, mapping: dict) -> None:
+    """
+    Clear all mapped ONCOKB INFO fields on the variant, then apply the
+    values from summary.  Clearing first prevents stale values from a
+    previous transcript leaking into the current record when the same
+    variant object is written multiple times.
+    """
+    for info_key in mapping.values():
+        try:
+            variant.INFO[info_key] = "."
+        except Exception:
+            pass
+
+    variant.INFO["ONCOKB_PREFERRED_TRANSCRIPT"] = nm_id if nm_id else "."
+    variant.INFO["ONCOKB_QUERY_TYPE"] = query_type
+
+    for key, value in summary.items():
+        if key in mapping and value != "":
+            variant.INFO[mapping[key]] = value
 
 
 # ---------------------------------------------------------
@@ -451,7 +517,7 @@ def summarize_oncokb(data: dict) -> dict:
 # Classify variant type
 # ---------------------------------------------------------
 
-def classify_variant(variant) -> str | None:
+def classify_variant(variant) -> Optional[str]:
     """
     Classifies variant based on INFO['SVTYPE'] or ID column (Column 3).
     Returns:
@@ -477,7 +543,7 @@ def classify_variant(variant) -> str | None:
     return sv_class
 
 
-def map_svtype_to_cna(svtype: str, variant_id: str) -> str | None:
+def map_svtype_to_cna(svtype: str, variant_id: str) -> Optional[str]:
     """Map SVTYPE or ID → OncoKB copyNameAlterationType."""
     if variant_id:
         if "MantaDUP" in variant_id:
@@ -504,7 +570,7 @@ def annotate_vcf(
     output_vcf: str,
     tumor_mode: str,
     oncokb_token: str,
-    preferred_transcripts_file: str | None = None,
+    preferred_transcripts_file: Optional[str] = None,
 ):
     token = oncokb_token
     preferred_transcripts = load_preferred_transcripts(preferred_transcripts_file)
@@ -550,6 +616,7 @@ def annotate_vcf(
     vcf = VCF(input_vcf)
 
     fields_to_add = {
+        "ONCOKB_PREFERRED_TRANSCRIPT": "NM ID of the preferred transcript used for OncoKB annotation; one record per matching transcript when multiple preferred transcripts overlap the same variant",
         "ONCOKB_QUERY_REF_GENOME": "OncoKB query.referenceGenome",
         "ONCOKB_QUERY_HUGO_SYMBOL": "OncoKB query.hugoSymbol",
         "ONCOKB_QUERY_ENTREZ_GENE_ID": "OncoKB query.entrezGeneId",
@@ -589,6 +656,44 @@ def annotate_vcf(
     for key, desc in fields_to_add.items():
         vcf.add_info_to_header({"ID": key, "Description": desc, "Type": "String", "Number": "1"})
 
+    # summary_key → VCF INFO tag (constant — defined once, reused every iteration)
+    mapping = {
+        "query_reference_genome": "ONCOKB_QUERY_REF_GENOME",
+        "query_hugo_symbol":      "ONCOKB_QUERY_HUGO_SYMBOL",
+        "query_entrez_gene_id":   "ONCOKB_QUERY_ENTREZ_GENE_ID",
+        "query_alteration":       "ONCOKB_QUERY_ALTERATION",
+        "query_tumor_type":       "ONCOKB_QUERY_TUMOR_TYPE",
+        "oncogenic":              "ONCOKB_ONCOGENIC",
+        "hotspot":                "ONCOKB_HOTSPOT",
+        "vus":                    "ONCOKB_VUS",
+        "gene_exist":             "ONCOKB_GENE_EXIST",
+        "variant_exist":          "ONCOKB_VARIANT_EXIST",
+        "allele_exist":           "ONCOKB_ALLELE_EXIST",
+        "exon":                   "ONCOKB_EXON",
+        "dataVersion":            "ONCOKB_DATA_VERSION",
+        "lastUpdate":             "ONCOKB_LAST_UPDATE",
+        "effect_known":           "ONCOKB_EFFECT",
+        "effect_desc":            "ONCOKB_EFFECT_DESC",
+        "pmids":                  "ONCOKB_PMIDS",
+        "abstracts":              "ONCOKB_ABSTRACTS",
+        "sens_level":             "ONCOKB_SENS_LVL",
+        "resist_level":           "ONCOKB_RESIST_LVL",
+        "diag_level":             "ONCOKB_DIAG_LVL",
+        "prog_level":             "ONCOKB_PROG_LVL",
+        "fda_level":              "ONCOKB_FDA_LVL",
+        "other_sensitive_levels": "ONCOKB_OTHER_SENS_LVLS",
+        "other_resistance_levels":"ONCOKB_OTHER_RESIST_LVLS",
+        "gene_summary":           "ONCOKB_GENE_SUMMARY",
+        "variant_summary":        "ONCOKB_VARIANT_SUMMARY",
+        "tumor_type_summary":     "ONCOKB_TUMOR_TYPE_SUMMARY",
+        "diagnostic_summary":     "ONCOKB_DIAG_SUMMARY",
+        "prognostic_summary":     "ONCOKB_PROG_SUMMARY",
+        "diagnostic_implications":"ONCOKB_DIAGNOSTIC_IMPLICATIONS",
+        "prognostic_implications":"ONCOKB_PROGNOSTIC_IMPLICATIONS",
+        "treatments":             "ONCOKB_TREATMENTS",
+        "json":                   "ONCOKB_JSON",
+    }
+
     writer = Writer(output_vcf, vcf)
 
     total_variants = 0
@@ -600,111 +705,105 @@ def annotate_vcf(
     for variant in vcf:
         total_variants += 1
         v_class = classify_variant(variant)
-        csqs = variant.INFO.get("CSQ")
-        gene = None
-        protein_change = None
-        summary = {}
+        csqs_raw = str(variant.INFO.get("CSQ") or "")
 
+        # ------------------------------------------------------------------
+        # SNV / indel / MantaINS / MantaBND
+        # ------------------------------------------------------------------
         if v_class == "snv":
-            gene, protein_change, selected_transcript, selection_reason = find_preferred_csq_and_protein(
-                variant, str(csqs), preferred_transcripts,
-                symbol_idx=SYMBOL_IDX,
-                feature_idx=FEATURE_IDX,
-                hgvsp_idx=HGVSP_IDX,
-                mane_select_nm_idx=MANE_SELECT_NM_IDX,
-                mane_plus_clinical_nm_idx=MANE_PLUS_CLINICAL_NM_IDX,
-                mane_status_idx=MANE_STATUS_IDX,
+            preferred_matches = find_all_preferred_csq_matches(
+                variant, csqs_raw, preferred_transcripts,
+                SYMBOL_IDX, FEATURE_IDX, HGVSP_IDX,
+                MANE_SELECT_NM_IDX, MANE_PLUS_CLINICAL_NM_IDX,
             )
 
-            if not gene or not protein_change:
+            # Filter to entries where both gene and protein change are resolvable
+            valid_matches = [m for m in preferred_matches if m["gene"] and m["protein_change"]]
+
+            if not valid_matches:
+                # No preferred-transcript hit — fall back to MANE / VEP default
+                gene, protein_change, selected_tx, _ = find_fallback_csq(
+                    variant, csqs_raw,
+                    SYMBOL_IDX, FEATURE_IDX, HGVSP_IDX,
+                    MANE_SELECT_NM_IDX, MANE_PLUS_CLINICAL_NM_IDX, MANE_STATUS_IDX,
+                )
+                if gene and protein_change:
+                    valid_matches = [{"nm_id": selected_tx or "", "gene": gene, "protein_change": protein_change}]
+
+            if not valid_matches:
                 writer.write_record(variant)
                 continue
 
-            data = query_oncokb_mutation(gene, protein_change, tumor_type, token, mut_cache)
-            summary = summarize_oncokb(data)
-            if data:
-                annotated_mut += 1
-            variant.INFO["ONCOKB_QUERY_TYPE"] = "MUTATION"
+            for match in valid_matches:
+                data = query_oncokb_mutation(match["gene"], match["protein_change"], tumor_type, token, mut_cache)
+                summary = summarize_oncokb(data)
+                if data:
+                    annotated_mut += 1
+                _apply_oncokb_info(variant, summary, match["nm_id"], "MUTATION", mapping)
+                writer.write_record(variant)
 
+        # ------------------------------------------------------------------
+        # CNV (MantaDUP / MantaDEL / GAIN / LOSS / DEL)
+        # For CNAs the OncoKB query is gene-level, so we deduplicate by gene
+        # symbol — two preferred transcripts from the same gene produce the
+        # same CNA annotation and should not create duplicate rows.
+        # ------------------------------------------------------------------
         elif v_class == "cnv":
-            if csqs:
-                # Use the same preferred-transcript tier logic as SNVs to pick gene,
-                # so CDKN2A is chosen over adjacent CDKN2B when NM_000077 is preferred.
-                gene, _, _, _ = find_preferred_csq_and_protein(
-                    variant, str(csqs), preferred_transcripts,
-                    symbol_idx=SYMBOL_IDX,
-                    feature_idx=FEATURE_IDX,
-                    hgvsp_idx=HGVSP_IDX,
-                    mane_select_nm_idx=MANE_SELECT_NM_IDX,
-                    mane_plus_clinical_nm_idx=MANE_PLUS_CLINICAL_NM_IDX,
-                    mane_status_idx=MANE_STATUS_IDX,
-                )
-                # find_preferred_csq_and_protein may return None gene for non-coding —
-                # fall back to first CSQ record in that case.
-                if not gene and str(csqs):
-                    first_fields = str(csqs).split(",")[0].split("|")
-                    gene = first_fields[SYMBOL_IDX] if len(first_fields) > SYMBOL_IDX else None
-
             svtype = variant.INFO.get("SVTYPE")
             variant_id = variant.ID if variant.ID else ""
             cna_type = map_svtype_to_cna(str(svtype), variant_id)
 
-            if not gene or not cna_type:
+            if not cna_type:
                 writer.write_record(variant)
                 continue
 
-            data = query_oncokb_cna(gene, cna_type, tumor_type, token, cna_cache)
-            summary = summarize_oncokb(data)
-            if data:
-                annotated_cna += 1
-            variant.INFO["ONCOKB_QUERY_TYPE"] = "CNA"
+            preferred_matches = find_all_preferred_csq_matches(
+                variant, csqs_raw, preferred_transcripts,
+                SYMBOL_IDX, FEATURE_IDX, HGVSP_IDX,
+                MANE_SELECT_NM_IDX, MANE_PLUS_CLINICAL_NM_IDX,
+            )
+
+            if preferred_matches:
+                seen_genes: set[str] = set()
+                any_written = False
+                for match in preferred_matches:
+                    gene = match["gene"]
+                    if not gene or gene in seen_genes:
+                        continue
+                    seen_genes.add(gene)
+                    data = query_oncokb_cna(gene, cna_type, tumor_type, token, cna_cache)
+                    summary = summarize_oncokb(data)
+                    if data:
+                        annotated_cna += 1
+                    _apply_oncokb_info(variant, summary, match["nm_id"], "CNA", mapping)
+                    writer.write_record(variant)
+                    any_written = True
+                if not any_written:
+                    writer.write_record(variant)
+            else:
+                # Fallback: MANE / VEP default gene selection
+                gene, _, _, _ = find_fallback_csq(
+                    variant, csqs_raw,
+                    SYMBOL_IDX, FEATURE_IDX, HGVSP_IDX,
+                    MANE_SELECT_NM_IDX, MANE_PLUS_CLINICAL_NM_IDX, MANE_STATUS_IDX,
+                )
+                if not gene and csqs_raw:
+                    first_fields = csqs_raw.split(",")[0].split("|")
+                    gene = first_fields[SYMBOL_IDX] if len(first_fields) > SYMBOL_IDX else None
+
+                if not gene:
+                    writer.write_record(variant)
+                    continue
+
+                data = query_oncokb_cna(gene, cna_type, tumor_type, token, cna_cache)
+                summary = summarize_oncokb(data)
+                if data:
+                    annotated_cna += 1
+                _apply_oncokb_info(variant, summary, "", "CNA", mapping)
+                writer.write_record(variant)
 
         else:
             writer.write_record(variant)
-            continue
-
-        mapping = {
-            "query_reference_genome": "ONCOKB_QUERY_REF_GENOME",
-            "query_hugo_symbol": "ONCOKB_QUERY_HUGO_SYMBOL",
-            "query_entrez_gene_id": "ONCOKB_QUERY_ENTREZ_GENE_ID",
-            "query_alteration": "ONCOKB_QUERY_ALTERATION",
-            "query_tumor_type": "ONCOKB_QUERY_TUMOR_TYPE",
-            "oncogenic": "ONCOKB_ONCOGENIC",
-            "hotspot": "ONCOKB_HOTSPOT",
-            "vus": "ONCOKB_VUS",
-            "gene_exist": "ONCOKB_GENE_EXIST",
-            "variant_exist": "ONCOKB_VARIANT_EXIST",
-            "allele_exist": "ONCOKB_ALLELE_EXIST",
-            "exon": "ONCOKB_EXON",
-            "dataVersion": "ONCOKB_DATA_VERSION",
-            "lastUpdate": "ONCOKB_LAST_UPDATE",
-            "effect_known": "ONCOKB_EFFECT",
-            "effect_desc": "ONCOKB_EFFECT_DESC",
-            "pmids": "ONCOKB_PMIDS",
-            "abstracts": "ONCOKB_ABSTRACTS",
-            "sens_level": "ONCOKB_SENS_LVL",
-            "resist_level": "ONCOKB_RESIST_LVL",
-            "diag_level": "ONCOKB_DIAG_LVL",
-            "prog_level": "ONCOKB_PROG_LVL",
-            "fda_level": "ONCOKB_FDA_LVL",
-            "other_sensitive_levels": "ONCOKB_OTHER_SENS_LVLS",
-            "other_resistance_levels": "ONCOKB_OTHER_RESIST_LVLS",
-            "gene_summary": "ONCOKB_GENE_SUMMARY",
-            "variant_summary": "ONCOKB_VARIANT_SUMMARY",
-            "tumor_type_summary": "ONCOKB_TUMOR_TYPE_SUMMARY",
-            "diagnostic_summary": "ONCOKB_DIAG_SUMMARY",
-            "prognostic_summary": "ONCOKB_PROG_SUMMARY",
-            "diagnostic_implications": "ONCOKB_DIAGNOSTIC_IMPLICATIONS",
-            "prognostic_implications": "ONCOKB_PROGNOSTIC_IMPLICATIONS",
-            "treatments": "ONCOKB_TREATMENTS",
-            "json": "ONCOKB_JSON",
-        }
-
-        for key, value in summary.items():
-            if key in mapping and value != "":
-                variant.INFO[mapping[key]] = value
-
-        writer.write_record(variant)
 
     writer.close()
 
